@@ -14,13 +14,15 @@ To build and run the example map:
 
 ```
 GRAPHICS_BACKEND=metal
-cargo run --release --features amethyst/GRAPHICS_BACKEND,amethyst/no-slow-safety-checks -- assets/maps/example_map.ron
+cargo run --release --features amethyst/$GRAPHICS_BACKEND,amethyst/no-slow-safety-checks -- assets/maps/example_map.ron
 ```
 
 When you exit the app, a binary file "saved_voxels.bin" will contain the map you just created.
 You can load it back into the editor by setting `voxels_file_path: Some("saved_voxels.bin")` in "assets/maps/example_map.ron."
 
-Control bindings can be found in assets/config/map_editor_bindings.ron.
+Control bindings can be found in "assets/config/map_editor_bindings.ron".
+
+## Development
 
 It's early days for this project. These features are currently supported:
 
