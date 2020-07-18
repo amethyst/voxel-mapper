@@ -1,0 +1,6 @@
+(
+    title: "Handsome Voxel Editor",
+    // dimensions: Some((1600, 900)),
+    dimensions: Some((800, 600)),
+    // fullscreen: Some((0, "main")),
+)

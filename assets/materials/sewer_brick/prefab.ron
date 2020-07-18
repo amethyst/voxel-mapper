@@ -1,0 +1,64 @@
+#![enable(implicit_some)]
+Prefab(
+    entities: [
+        PrefabEntity(
+            data: (
+                albedo: File("materials/sewer_brick/albedo.png", ("IMAGE", (
+                    generate_mips: true,
+                    sampler_info: (
+                        min_filter: Linear,
+                        mag_filter: Linear,
+                        mip_filter: Linear,
+                        wrap_mode: (Tile, Tile, Tile),
+                        lod_bias: (0),
+                        lod_range: (
+                            start: ( 0 ),
+                            end: ( 8000 ),
+                        ),
+                        comparison: None,
+                        border: (0),
+                        normalized: true,
+                        anisotropic: Off,
+                    ),
+                ))),
+                metallic_roughness: File("materials/sewer_brick/metal_rough.png", ("IMAGE", (
+                    generate_mips: true,
+                    sampler_info: (
+                        min_filter: Linear,
+                        mag_filter: Linear,
+                        mip_filter: Linear,
+                        wrap_mode: (Tile, Tile, Tile),
+                        lod_bias: (0),
+                        lod_range: (
+                            start: ( 0 ),
+                            end: ( 8000 ),
+                        ),
+                        comparison: None,
+                        border: (0),
+                        normalized: true,
+                        anisotropic: Off,
+                    ),
+                ))),
+                normal: File("materials/sewer_brick/normal.png", ("IMAGE", (
+                    repr: Unorm,
+                    generate_mips: true,
+                    sampler_info: (
+                        min_filter: Linear,
+                        mag_filter: Linear,
+                        mip_filter: Linear,
+                        wrap_mode: (Tile, Tile, Tile),
+                        lod_bias: (0),
+                        lod_range: (
+                            start: ( 0 ),
+                            end: ( 8000 ),
+                        ),
+                        comparison: None,
+                        border: (0),
+                        normalized: true,
+                        anisotropic: Off,
+                    ),
+                ))),
+            )
+        )
+    ],
+)

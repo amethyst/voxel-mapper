@@ -1,0 +1,10 @@
+(
+    axes: {},
+    actions: {
+        ExitApp: [[Key(Escape)]],
+        RemoveVoxel: [[Key(R)]],
+        CreateVoxel: [[Key(C)]],
+        IncreaseBrushRadius: [[Key(Up)]],
+        DecreaseBrushRadius: [[Key(Down)]],
+    },
+)

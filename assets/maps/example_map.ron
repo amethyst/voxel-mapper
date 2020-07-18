@@ -1,0 +1,37 @@
+(
+    palette_spec: (
+        assets: (
+            materials: {
+                1: "stepping_stones",
+                2: "sewer_brick",
+            },
+        ),
+        infos: [
+            // Empty
+            (
+                flags: (
+                    is_floor: false,
+                    is_empty: true,
+                ),
+                material: (0),
+            ),
+            // Solid 1
+            (
+                flags: (
+                    is_floor: true,
+                    is_empty: false,
+                ),
+                material: (1),
+            ),
+            // Solid 2
+            (
+                flags: (
+                    is_floor: false,
+                    is_empty: false,
+                ),
+                material: (2),
+            ),
+        ],
+    ),
+    voxels_file_path: None,
+)
