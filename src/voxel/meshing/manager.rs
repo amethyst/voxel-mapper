@@ -45,7 +45,8 @@ impl<'a> VoxelMeshManager<'a> {
         chunk: &LatticeVoxels<'_, T, Voxel, I>,
         meshes: &ChunkMeshes,
         materials: &HashMap<VoxelMaterial, Handle<Prefab<MaterialPrefab>>>,
-    ) where
+    ) -> u128
+    where
         T: IsEmpty,
         I: Indexer,
     {
@@ -58,8 +59,10 @@ impl<'a> VoxelMeshManager<'a> {
         }
 
         // Replace the bounding volumes.
+        let before_bvs = std::time::Instant::now();
         self.remove_bounding_volumes_for_chunk(chunk_key);
         self.create_bounding_volumes_for_voxels(chunk_key, chunk);
+        let micros_to_create_bvs = before_bvs.elapsed().as_micros();
 
         // Replace the entities.
         let mesh_entities = self
@@ -71,6 +74,8 @@ impl<'a> VoxelMeshManager<'a> {
             self.entities.delete(e).unwrap();
         }
         *mesh_entities = new_entities;
+
+        micros_to_create_bvs
     }
 
     /// Creates a new entity with the given mesh and material. Expects the mesh vertices to already

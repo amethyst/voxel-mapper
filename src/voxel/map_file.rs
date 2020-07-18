@@ -1,6 +1,6 @@
 use crate::{
     assets::{read_bincode_file, write_bincode_file, BincodeFileError},
-    voxel::{Voxel, VoxelInfo, VoxelMap, VoxelPaletteAssets, VOXEL_CHUNK_SIZE},
+    voxel::{VoxelInfo, VoxelMap, VoxelPaletteAssets, VOXEL_CHUNK_SIZE},
 };
 
 use amethyst::config::Config;
@@ -45,9 +45,4 @@ pub struct VoxelPaletteSpec {
     /// The palette of voxels that can be used in the lattice. Indexed by integer that is used as
     /// the address part of the `VoxelInfoPtr`.
     pub infos: Vec<VoxelInfo>,
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct VoxelData {
-    map: ChunkedLatticeMap<Voxel>,
 }

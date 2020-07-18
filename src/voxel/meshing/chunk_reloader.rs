@@ -174,6 +174,7 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
         } = &mut *voxel_assets;
 
         // Create mesh entities once change sets have finished loading.
+        let mut total_update_bv_micros = 0;
         if let Some(complete_set) = reload_queue.pop_complete() {
             for complete_chunk in complete_set.chunks.into_iter() {
                 let voxels = LatticeVoxels {
@@ -181,7 +182,7 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
                     palette: &map.voxels.palette,
                 };
                 // Update entities and drop old assets.
-                manager.update_chunk_mesh_entities(
+                total_update_bv_micros += manager.update_chunk_mesh_entities(
                     &complete_chunk.key,
                     &voxels,
                     &complete_chunk.meshes,
@@ -199,8 +200,7 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
             reload_queue.push(change_set, combine_limit);
         }
 
-        // Keep an upper bound on the latency incurred from the meshing algorithm. This is probably
-        // way higher than it needs to be, and the real bottleneck is often GPU bandwidth.
+        // Keep an upper bound on the latency incurred from the meshing algorithm.
         let max_meshes_per_frame = 100;
         // Generate meshes.
         let mut num_chunks_meshed = 0;
@@ -244,9 +244,12 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
 
         if num_chunks_meshed > 0 {
             log::debug!(
-                "chunk_reloader took {} millis (surface nets = {} micros) to reload {} chunks, with {} triangles",
+                "chunk_reloader took {} millis
+                (surface nets = {} micros) (bounding volumes = {} micros)
+                to reload {} chunks, with {} triangles",
                 start.elapsed().as_millis(),
                 total_surface_nets_micros,
+                total_update_bv_micros,
                 num_chunks_meshed,
                 num_triangles_generated
             );
