@@ -79,7 +79,6 @@ impl<'a> System<'a> for EditVoxelSystem {
 
         for input_event in input_events.iter() {
             match input_event {
-                // TODO: replace with ActionPressed
                 InputEvent::ActionPressed(ActionBinding::IncreaseBrushRadius) => {
                     brush.radius += 1;
                     log::info!("Set brush radius to {}", brush.radius);
