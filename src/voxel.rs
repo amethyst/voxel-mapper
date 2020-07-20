@@ -51,7 +51,7 @@ impl IsFloor for VoxelInfo {
 }
 
 /// The data actually stored in each point of the voxel map.
-#[derive(Clone, Copy, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct Voxel {
     /// Points to some palette element.
     pub palette_address: u8,

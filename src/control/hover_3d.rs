@@ -67,12 +67,9 @@ where
 
         // Check for intersection with a voxel.
         let voxel_result = nearest_bounding_volume_ray_cast(&*voxel_bvt, &ray, |_| true);
-        objects.voxel = voxel_result.map(|raycast_result| {
-            log::debug!("p = {}", raycast_result.data);
-            HoverVoxel {
-                raycast_result,
-                ray,
-            }
+        objects.voxel = voxel_result.map(|raycast_result| HoverVoxel {
+            raycast_result,
+            ray,
         });
 
         // Check for intersection with the XZ plane.
