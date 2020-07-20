@@ -200,8 +200,9 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
             reload_queue.push(change_set, combine_limit);
         }
 
-        // Keep an upper bound on the latency incurred from the meshing algorithm.
-        let max_meshes_per_frame = 100;
+        // Keep an upper bound on the latency incurred from the meshing algorithm and updates to the
+        // voxel BVH.
+        let max_meshes_per_frame = 32;
         // Generate meshes.
         let mut num_chunks_meshed = 0;
         let mut num_triangles_generated = 0;

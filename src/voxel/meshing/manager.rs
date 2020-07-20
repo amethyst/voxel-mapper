@@ -11,7 +11,7 @@ use amethyst::{
     renderer::formats::mtl::MaterialPrefab,
 };
 use ilattice3 as lat;
-use ilattice3::{prelude::*, GetPaletteAddress, Indexer, IsEmpty, LatticeVoxels};
+use ilattice3::{find_surface_voxels, prelude::*, Indexer, IsEmpty, LatticeVoxels};
 use ncollide3d::partitioning::DBVTLeaf;
 use std::collections::HashMap;
 
@@ -104,9 +104,6 @@ impl<'a> VoxelMeshManager<'a> {
         }
     }
 
-    // PERF: we probably don't need a BV for every voxel in the entire map; it probably uses a lot
-    // of memory; we could instead only create BVs for exposed voxels, i.e. the ones that are
-    // visible to mouse interactions
     fn create_bounding_volumes_for_voxels<T, I>(
         &mut self,
         chunk_key: &lat::Point,
@@ -115,17 +112,7 @@ impl<'a> VoxelMeshManager<'a> {
         T: IsEmpty,
         I: Indexer,
     {
-        let solid_points: Vec<_> = LatticeMapIter(&chunk_voxels.map)
-            .into_iter()
-            .filter_map(|(p, ptr)| {
-                if chunk_voxels.palette[ptr.get_palette_address()].is_empty() {
-                    None
-                } else {
-                    Some(p)
-                }
-            })
-            .collect();
-
+        let solid_points: Vec<_> = find_surface_voxels(chunk_voxels, chunk_voxels.get_extent());
         let leaves = self
             .bvt_leaves
             .leaves
