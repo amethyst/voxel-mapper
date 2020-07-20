@@ -69,7 +69,7 @@ impl CollidingController {
             &cam_state.feet,
             &input.feet_translation,
             &voxel_map.voxels,
-            false,
+            true,
         );
         cam_state.stand_up();
         cam_state.add_yaw(input.delta_yaw);
