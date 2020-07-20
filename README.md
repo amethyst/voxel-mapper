@@ -14,7 +14,7 @@ To build and run the example map:
 
 ```
 GRAPHICS_BACKEND=metal
-cargo run --release --features amethyst/$GRAPHICS_BACKEND,amethyst/no-slow-safety-checks -- assets/maps/example_map.ron
+cargo run --bin editor --release --features amethyst/$GRAPHICS_BACKEND,amethyst/no-slow-safety-checks -- assets/maps/example_map.ron
 ```
 
 When you exit the app, a binary file "saved_voxels.bin" will contain the map you just created.
