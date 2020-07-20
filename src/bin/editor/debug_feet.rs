@@ -1,4 +1,4 @@
-use crate::control::camera::{MainCameraTag, ThirdPersonCameraState};
+use handsome_voxels::control::camera::{MainCameraTag, ThirdPersonCameraState};
 
 use amethyst::{
     core::ecs::prelude::*,

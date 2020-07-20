@@ -1,5 +1,5 @@
 use super::floor_translation::floor_drag_translation;
-use crate::{control::bindings::GameBindings, geometry::Plane};
+use crate::geometry::Plane;
 
 use amethyst::{
     core::{
@@ -7,7 +7,7 @@ use amethyst::{
         math::{Point2, Vector3},
         Transform,
     },
-    input::{InputEvent, InputHandler, ScrollDirection},
+    input::{BindingTypes, InputEvent, InputHandler, ScrollDirection},
     renderer::camera::Projection,
     window::ScreenDimensions,
     winit::MouseButton,
@@ -43,10 +43,13 @@ impl InputProcessor {
         }
     }
 
-    fn get_camera_radius_scalar_from_mouse_wheel_events(
+    fn get_camera_radius_scalar_from_mouse_wheel_events<B>(
         &mut self,
-        events: &[InputEvent<GameBindings>],
-    ) -> f32 {
+        events: &[InputEvent<B>],
+    ) -> f32
+    where
+        B: BindingTypes,
+    {
         let mut radius_scalar = 1.0;
         for event in events.iter() {
             if let InputEvent::MouseWheelMoved(dir) = *event {
@@ -63,15 +66,18 @@ impl InputProcessor {
         radius_scalar
     }
 
-    pub fn process_input(
+    pub fn process_input<B>(
         &mut self,
-        input: &InputHandler<GameBindings>,
-        events: &[InputEvent<GameBindings>],
+        input: &InputHandler<B>,
+        events: &[InputEvent<B>],
         floor_plane: &Plane,
         camera_tfm: &Transform,
         camera_proj: &Projection,
         screen_dims: &ScreenDimensions,
-    ) -> ProcessedInput {
+    ) -> ProcessedInput
+    where
+        B: BindingTypes,
+    {
         let radius_scalar = self.get_camera_radius_scalar_from_mouse_wheel_events(&events);
 
         let mut delta_yaw = 0.0;

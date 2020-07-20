@@ -1,11 +1,11 @@
 use crate::{
-    collision::VoxelBVT,
-    control::{
-        camera::{debug_feet::make_camera_feet_lines, make_camera},
-        edit_voxel::PaintBrush,
-    },
-    flashlight::make_flashlight,
+    debug_feet::make_camera_feet_lines, edit_voxel::PaintBrush, flashlight::make_flashlight,
     hover_hint::make_hover_hint_lines,
+};
+
+use handsome_voxels::{
+    collision::VoxelBVT,
+    control::camera::make_camera,
     voxel::{
         loader::VoxelLoader,
         map_file::{load_voxel_map, save_voxel_map},

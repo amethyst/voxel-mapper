@@ -1,9 +1,7 @@
-use crate::{
-    control::{
-        bindings::{ActionBinding, GameBindings},
-        camera::data::CameraData,
-        hover_3d::ObjectsUnderCursor,
-    },
+use crate::bindings::{ActionBinding, GameBindings};
+
+use handsome_voxels::{
+    control::{camera::data::CameraData, hover_3d::ObjectsUnderCursor},
     voxel::{
         decode_distance,
         setter::{SetVoxel, SetVoxelsEvent},

@@ -1,5 +1,4 @@
 pub mod data;
-pub mod debug_feet;
 pub mod input;
 pub mod state;
 
@@ -12,20 +11,20 @@ pub use self::final_controller::FinalController;
 pub use self::input::{InputConfig, InputProcessor, ProcessedInput};
 pub use self::state::ThirdPersonCameraState;
 
-use crate::{collision::VoxelBVT, control::bindings::GameBindings, voxel::VoxelMap};
+use crate::{collision::VoxelBVT, voxel::VoxelMap};
 
 use amethyst::{
     core::{
         ecs::prelude::*,
         math::Point3,
         shrev::{EventChannel, ReaderId},
-        Transform,
+        SystemDesc, Transform,
     },
-    derive::SystemDesc,
-    input::{InputEvent, InputHandler},
+    input::{BindingTypes, InputEvent, InputHandler},
     renderer::camera::Camera,
     window::ScreenDimensions,
 };
+use std::marker::PhantomData;
 
 pub fn make_camera(position: Point3<f32>, feet: Point3<f32>, world: &mut World) -> Entity {
     let (width, height) = world.exec(|screen_dims: ReadExpect<ScreenDimensions>| {
@@ -89,20 +88,26 @@ impl Component for CameraControllerComponent {
 }
 
 #[derive(SystemData)]
-pub struct CameraControlData<'a> {
+pub struct CameraControlData<'a, B>
+where
+    B: BindingTypes,
+{
     controllers: WriteStorage<'a, CameraControllerComponent>,
     input_processors: WriteStorage<'a, InputProcessor>,
     tpc_states: WriteStorage<'a, ThirdPersonCameraState>,
     cameras: ReadStorage<'a, Camera>,
     transforms: WriteStorage<'a, Transform>,
-    input_handler: Read<'a, InputHandler<GameBindings>>,
+    input_handler: Read<'a, InputHandler<B>>,
     voxel_map: ReadExpect<'a, VoxelMap>,
     voxel_bvt: ReadExpect<'a, VoxelBVT>,
     screen_dims: ReadExpect<'a, ScreenDimensions>,
 }
 
-impl CameraControlData<'_> {
-    fn update(&mut self, events: &[InputEvent<GameBindings>]) {
+impl<B> CameraControlData<'_, B>
+where
+    B: BindingTypes,
+{
+    fn update(&mut self, events: &[InputEvent<B>]) {
         if let Some((ctrlr, input_proc, tpc_state, cam, cam_tfm)) = (
             &mut self.controllers,
             &mut self.input_processors,
@@ -133,23 +138,48 @@ impl CameraControlData<'_> {
     }
 }
 
-#[derive(SystemDesc)]
-#[system_desc(name(CameraControlSystemDesc))]
-pub struct CameraControlSystem {
-    #[system_desc(event_channel_reader)]
-    reader_id: ReaderId<InputEvent<GameBindings>>,
+pub struct CameraControlSystem<B>
+where
+    B: BindingTypes,
+{
+    reader_id: ReaderId<InputEvent<B>>,
 }
 
-impl CameraControlSystem {
-    pub fn new(reader_id: ReaderId<InputEvent<GameBindings>>) -> Self {
+impl<B> CameraControlSystem<B>
+where
+    B: BindingTypes,
+{
+    pub fn new(reader_id: ReaderId<InputEvent<B>>) -> Self {
         Self { reader_id }
     }
 }
 
-impl<'a> System<'a> for CameraControlSystem {
+#[derive(Default)]
+pub struct CameraControlSystemDesc<B> {
+    bindings: PhantomData<B>,
+}
+
+impl<'a, 'b, B> SystemDesc<'a, 'b, CameraControlSystem<B>> for CameraControlSystemDesc<B>
+where
+    B: BindingTypes,
+{
+    fn build(self, world: &mut World) -> CameraControlSystem<B> {
+        <CameraControlSystem<B> as System<'_>>::SystemData::setup(world);
+
+        let mut channel = world.write_resource::<EventChannel<InputEvent<B>>>();
+        let reader_id = channel.register_reader();
+
+        CameraControlSystem { reader_id }
+    }
+}
+
+impl<'a, B> System<'a> for CameraControlSystem<B>
+where
+    B: BindingTypes,
+{
     type SystemData = (
-        CameraControlData<'a>,
-        Read<'a, EventChannel<InputEvent<GameBindings>>>,
+        CameraControlData<'a, B>,
+        Read<'a, EventChannel<InputEvent<B>>>,
     );
 
     fn run(&mut self, (mut data, events): Self::SystemData) {

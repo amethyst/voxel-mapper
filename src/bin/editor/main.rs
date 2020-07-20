@@ -1,27 +1,22 @@
-mod assets;
-mod collision;
-mod control;
+mod bindings;
+mod debug_feet;
+mod edit_voxel;
 mod flashlight;
-mod geometry;
 mod hover_hint;
 mod only_state;
-mod triplanar_pass;
-mod voxel;
 
-#[cfg(test)]
-mod test_util;
-
-use control::{
-    bindings::GameBindings,
-    camera::{debug_feet::DrawCameraFeetSystem, CameraControlSystemDesc},
-    edit_voxel::EditVoxelSystemDesc,
-    hover_3d::HoverObjectSystem,
-};
+use bindings::GameBindings;
+use debug_feet::DrawCameraFeetSystem;
+use edit_voxel::EditVoxelSystemDesc;
 use flashlight::FlashlightSystem;
 use hover_hint::HoverHintSystem;
 use only_state::OnlyState;
-use triplanar_pass::RenderTriplanarPbr;
-use voxel::{meshing::chunk_reloader::VoxelChunkReloaderSystemDesc, setter::VoxelSetterSystemDesc};
+
+use handsome_voxels::{
+    control::{camera::CameraControlSystemDesc, hover_3d::HoverObjectSystem},
+    triplanar_pass::RenderTriplanarPbr,
+    voxel::{meshing::chunk_reloader::VoxelChunkReloaderSystemDesc, setter::VoxelSetterSystemDesc},
+};
 
 use amethyst::{
     assets::PrefabLoaderSystemDesc,
@@ -59,10 +54,18 @@ fn run_app(map_file: PathBuf) -> amethyst::Result<()> {
         .with_bundle(
             InputBundle::<GameBindings>::new().with_bindings_from_file(&input_config_path)?,
         )?
-        .with_system_desc(CameraControlSystemDesc::default(), "camera_control", &[])
+        .with_system_desc(
+            CameraControlSystemDesc::<GameBindings>::default(),
+            "camera_control",
+            &[],
+        )
         .with(DrawCameraFeetSystem, "draw_camera_feet", &[])
         .with(FlashlightSystem, "flashlight_system", &[])
-        .with(HoverObjectSystem, "hover_object", &[])
+        .with(
+            HoverObjectSystem::<GameBindings>::default(),
+            "hover_object",
+            &[],
+        )
         .with(HoverHintSystem, "hover_hint", &["hover_object"])
         .with_system_desc(EditVoxelSystemDesc, "edit_voxel", &["hover_object"])
         .with_system_desc(VoxelSetterSystemDesc, "voxel_setter", &[])

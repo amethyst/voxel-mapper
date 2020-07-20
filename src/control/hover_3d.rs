@@ -1,6 +1,6 @@
 use crate::{
     collision::{nearest_bounding_volume_ray_cast, NearestBVRayCastResult, VoxelBVT},
-    control::{bindings::GameBindings, camera::data::CameraData},
+    control::camera::data::CameraData,
     geometry::{line_plane_intersection, Line, LinePlaneIntersection, Plane},
 };
 
@@ -9,12 +9,16 @@ use amethyst::{
         ecs::prelude::*,
         math::{Point3, Vector3},
     },
-    input::InputHandler,
+    input::{BindingTypes, InputHandler},
 };
 use ilattice3 as lat;
 use ncollide3d::{bounding_volume::AABB, query::Ray};
+use std::marker::PhantomData;
 
-pub struct HoverObjectSystem;
+#[derive(Default)]
+pub struct HoverObjectSystem<B> {
+    bindings: PhantomData<B>,
+}
 
 // The hover objects are always tracked by ray casting the cursor's position.
 pub type VoxelRayCastResult = NearestBVRayCastResult<lat::Point, AABB<f32>>;
@@ -39,12 +43,15 @@ pub struct ObjectsUnderCursor {
     pub voxel: Option<HoverVoxel>,
 }
 
-impl<'a> System<'a> for HoverObjectSystem {
+impl<'a, B> System<'a> for HoverObjectSystem<B>
+where
+    B: BindingTypes,
+{
     #[allow(clippy::type_complexity)]
     type SystemData = (
         Write<'a, ObjectsUnderCursor>,
         ReadExpect<'a, VoxelBVT>,
-        Read<'a, InputHandler<GameBindings>>,
+        Read<'a, InputHandler<B>>,
         CameraData<'a>,
     );
 
@@ -60,9 +67,12 @@ impl<'a> System<'a> for HoverObjectSystem {
 
         // Check for intersection with a voxel.
         let voxel_result = nearest_bounding_volume_ray_cast(&*voxel_bvt, &ray, |_| true);
-        objects.voxel = voxel_result.map(|raycast_result| HoverVoxel {
-            raycast_result,
-            ray,
+        objects.voxel = voxel_result.map(|raycast_result| {
+            log::debug!("p = {}", raycast_result.data);
+            HoverVoxel {
+                raycast_result,
+                ray,
+            }
         });
 
         // Check for intersection with the XZ plane.

@@ -33,5 +33,5 @@
             ),
         ],
     ),
-    voxels_file_path: None,
+    voxels_file_path: Some("repro_voxels.bin"),
 )
