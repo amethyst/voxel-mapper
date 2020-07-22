@@ -14,16 +14,6 @@ use ordered_float::NotNan;
 // Amethyst coordinates
 pub const UP: [f32; 3] = [0.0, 1.0, 0.0];
 
-#[derive(Clone, Copy)]
-pub struct Radians(pub f32);
-
-#[allow(dead_code)]
-pub struct OrthonormalFrame {
-    n: Unit<Vector3<f32>>,
-    u: Unit<Vector3<f32>>,
-    v: Unit<Vector3<f32>>,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Line {
     pub p: Point3<f32>,
