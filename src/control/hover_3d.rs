@@ -2,6 +2,7 @@ use crate::{
     collision::{nearest_bounding_volume_ray_cast, NearestBVRayCastResult, VoxelBVT},
     control::camera::data::CameraData,
     geometry::{line_plane_intersection, Line, LinePlaneIntersection, Plane},
+    voxel::closest_face,
 };
 
 use amethyst::{
@@ -32,6 +33,19 @@ pub struct HoverVoxel {
 impl HoverVoxel {
     pub fn point(&self) -> &lat::Point {
         &self.raycast_result.data
+    }
+
+    /// Returns the normal vector of the face that the ray hit first.
+    pub fn hover_face(&self) -> lat::Point {
+        let hover_p = self.ray.point_at(self.raycast_result.toi);
+
+        closest_face(self.point(), &hover_p)
+    }
+
+    /// Returns the point of the adjacent voxel that shares a face with the voxel that was hit by
+    /// the ray.
+    pub fn hover_adjacent_point(&self) -> lat::Point {
+        *self.point() + self.hover_face()
     }
 }
 

@@ -7,13 +7,12 @@ use meshing::loader::VoxelMeshes;
 
 use amethyst::{
     assets::{Handle, Prefab},
-    core::math::{Point3, Vector3},
+    core::math::{zero, Isometry3, Point3, Vector3},
     renderer::formats::mtl::MaterialPrefab,
 };
 use ilattice3 as lat;
-use ilattice3::{ChunkedPaletteLatticeMap, GetPaletteAddress, IsEmpty};
+use ilattice3::{closest_normal, ChunkedPaletteLatticeMap, GetPaletteAddress, IsEmpty};
 use ilattice3_mesh::SurfaceNetsVoxel;
-use nalgebra::{zero, Isometry3};
 use ncollide3d::{bounding_volume::AABB, shape::Cuboid};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -163,6 +162,16 @@ pub fn voxel_aabb(p: &lat::Point) -> AABB<f32> {
     extent_aabb(&single_voxel_extent(*p))
 }
 
+pub fn voxel_center_offset() -> Vector3<f32> {
+    Vector3::new(0.5, 0.5, 0.5)
+}
+
+pub fn voxel_center(p: &lat::Point) -> Point3<f32> {
+    let MyPoint3(fpoint) = (*p).into();
+
+    fpoint + voxel_center_offset()
+}
+
 fn half_extent(e: &lat::Extent) -> Vector3<f32> {
     let MyPoint3(sup) = (*e.get_local_supremum()).into();
 
@@ -186,4 +195,14 @@ pub fn voxel_cuboid(p: &lat::Point) -> Cuboid<f32> {
 
 pub fn voxel_transform(p: &lat::Point) -> Isometry3<f32> {
     extent_cuboid_transform(&single_voxel_extent(*p))
+}
+
+/// Returns the normal vector of the face which `real_p` is closest to. `voxel_p` is the point of
+/// the voxel.
+pub fn closest_face(voxel_p: &lat::Point, real_p: &Point3<f32>) -> lat::Point {
+    // Get a vector from the center of the voxel.
+    let c = voxel_center(voxel_p);
+    let real_v: [f32; 3] = (*real_p - c).into();
+
+    closest_normal(&real_v)
 }

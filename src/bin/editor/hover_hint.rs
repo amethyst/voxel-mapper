@@ -37,7 +37,7 @@ impl<'a> System<'a> for HoverHintSystem {
         for (_, lines) in (&is_hint, &mut debug_lines).join() {
             lines.clear();
             let box_p = if let Some(v) = &objects.voxel {
-                *v.point()
+                v.hover_adjacent_point()
             } else if let Some(p) = objects.xz_plane {
                 voxel_containing_point(&p)
             } else {
