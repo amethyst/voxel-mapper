@@ -11,6 +11,9 @@ use ilattice3 as lat;
 use ilattice3::{LatticeVoxels, VecLatticeMap};
 use std::collections::{HashMap, HashSet, VecDeque};
 
+#[cfg(feature = "profiler")]
+use thread_profiler::profile_scope;
+
 /// An event to notify the VoxelChunkReloaderSystem that it should reload the meshes all of
 /// `chunk_keys` *atomically* (we don't want to see some chunks updated out of sync with others).
 #[derive(Clone, Default)]
@@ -167,6 +170,9 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
             mut manager,
         ): Self::SystemData,
     ) {
+        #[cfg(feature = "profiler")]
+        profile_scope!("chunk_reloader");
+
         let VoxelAssets {
             materials, meshes, ..
         } = &mut *voxel_assets;

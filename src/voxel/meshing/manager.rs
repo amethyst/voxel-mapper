@@ -115,6 +115,9 @@ impl<'a> VoxelMeshManager<'a> {
         T: IsEmpty,
         I: Indexer,
     {
+        // This is subtly different from the set of surface points returned from the surface nets
+        // meshing algorithm, since we use the IsEmpty check instead of the signed distance. This
+        // allows us to have parts of the mesh that don't collide.
         let solid_points: Vec<_> = find_surface_voxels(chunk_voxels, chunk_voxels.get_extent());
         let leaves = self
             .bvt_leaves

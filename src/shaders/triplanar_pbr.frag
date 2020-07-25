@@ -105,6 +105,7 @@ layout(location = 0) in VertexData {
     vec3 position;
     vec3 normal;
     vec4 color;
+    vec4 material_weights;
 } vertex;
 
 layout(location = 0) out vec4 out_color;
@@ -290,5 +291,6 @@ void main() {
     vec3 ambient = ambient_color * albedo * ambient_occlusion;
     vec3 color = ambient + lighted + emission;
 
-    out_color = vec4(color, alpha) * vertex.color;
+    // Temporary: visualize the material weights by color
+    out_color = vec4(color, alpha) * vertex.color * vertex.material_weights;
 }

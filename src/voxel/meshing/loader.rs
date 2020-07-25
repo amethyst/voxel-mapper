@@ -11,6 +11,7 @@ use amethyst::{
 use ilattice3 as lat;
 use ilattice3::{
     prelude::*, ChunkedPaletteLatticeMap, GetPaletteAddress, HasIndexer, Indexer, LatticeVoxels,
+    CUBE_CORNERS,
 };
 use ilattice3_mesh::{surface_nets, SurfaceNetsOutput};
 use std::collections::HashMap;
@@ -66,7 +67,7 @@ impl<'a> VoxelMeshLoader<'a> {
             positions,
             normals,
             indices_by_material,
-            ..
+            surface_points,
         } = {
             #[cfg(feature = "profiler")]
             profile_scope!("surface_nets");
@@ -77,8 +78,10 @@ impl<'a> VoxelMeshLoader<'a> {
             )
         };
 
-        let vertex_material_weights =
-            calculate_material_weights(positions.len(), &indices_by_material);
+        let vertex_material_weights = calculate_material_weights(
+            &LatticeVoxelsForMeshing(chunk_and_boundary),
+            &surface_points,
+        );
 
         let meshes = indices_by_material
             .into_iter()
@@ -134,6 +137,12 @@ where
     }
 }
 
+impl<'a, I> GetExtent for LatticeVoxelsForMeshing<'a, I> {
+    fn get_extent(&self) -> &lat::Extent {
+        self.0.get_extent()
+    }
+}
+
 impl<'a, I> HasIndexer for LatticeVoxelsForMeshing<'a, I>
 where
     I: Indexer,
@@ -141,18 +150,18 @@ where
     type Indexer = I;
 }
 
-// TODO: replace this; it doesn't work for triangles on chunk boundaries, since they don't share
-// vertices between chunks
-fn calculate_material_weights(
-    num_vertices: usize,
-    indices_by_material: &HashMap<VoxelMaterial, Vec<usize>>,
-) -> Vec<[f32; 4]> {
+/// Uses a kernel to average the adjacent materials for each surface point.
+fn calculate_material_weights<V, I>(voxels: &V, surface_points: &[lat::Point]) -> Vec<[f32; 4]>
+where
+    V: GetExtent + GetLinear<Data = VoxelGraphics> + HasIndexer<Indexer = I>,
+    I: Indexer,
+{
     #[cfg(feature = "profiler")]
     profile_scope!("material_weights");
 
     // The vertex format is limited to 4 numbers for material weights.
-    assert!(indices_by_material.len() <= 4);
     // TODO: make this table for the actual set of materials in the chunk
+    // PERF: make this into a sparse Vec instead of a HashMap
     let weight_table: HashMap<VoxelMaterial, [f32; 4]> = [
         (VoxelMaterial(1), [1.0, 0.0, 0.0, 0.0]),
         (VoxelMaterial(2), [0.0, 1.0, 0.0, 0.0]),
@@ -163,15 +172,31 @@ fn calculate_material_weights(
     .cloned()
     .collect();
 
-    let mut material_weights = vec![[0.0; 4]; num_vertices];
-    for (material, indices) in indices_by_material.iter() {
-        let material_weight = weight_table[material];
-        for vertex_i in indices.iter() {
-            let w = &mut material_weights[*vertex_i];
-            w[0] += material_weight[0];
-            w[1] += material_weight[1];
-            w[2] += material_weight[2];
-            w[3] += material_weight[3];
+    let sup = voxels.get_extent().get_local_supremum();
+
+    // Precompute the offsets for cube corners, like we do in surface nets.
+    let mut linear_offsets = [0; 8];
+    for (i, offset) in CUBE_CORNERS.iter().enumerate() {
+        linear_offsets[i] = I::index_from_local_point(sup, offset);
+    }
+
+    let mut material_weights = vec![[0.0; 4]; surface_points.len()];
+
+    for (i, p) in surface_points.iter().enumerate() {
+        let p_linear = I::index_from_local_point(sup, p);
+        let w = &mut material_weights[i];
+        for offset in linear_offsets.iter() {
+            let q_linear = p_linear + offset;
+            let voxel = voxels.get_linear(q_linear);
+            if voxel.distance < 0.0 {
+                let material_w = weight_table
+                    .get(&voxel.material)
+                    .expect("Negative voxel must have a material");
+                w[0] += material_w[0];
+                w[1] += material_w[1];
+                w[2] += material_w[2];
+                w[3] += material_w[3];
+            }
         }
     }
 
