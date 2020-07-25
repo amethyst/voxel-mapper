@@ -1,13 +1,14 @@
 use amethyst::renderer::{mtl::FullTextureSet, pass::Base3DPassDef, RenderBase3D};
 use rendy::{
-    mesh::{AsVertex, Normal, Position, VertexFormat},
+    mesh::{AsVertex, VertexFormat},
     shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvShader},
+    util::types::vertex::{Color, Normal, Position},
 };
 
 lazy_static::lazy_static! {
-    static ref POS_NORM_VERTEX: SpirvShader = SourceShaderInfo::new(
-        include_str!("shaders/pos_norm.vert"),
-        "shaders/pos_norm.vert",
+    static ref POS_COLOR_NORM_VERTEX: SpirvShader = SourceShaderInfo::new(
+        include_str!("shaders/pos_color_norm.vert"),
+        "shaders/pos_color_norm.vert",
         ShaderKind::Vertex,
         SourceLanguage::GLSL,
         "main",
@@ -27,7 +28,7 @@ impl Base3DPassDef for TriplanarPassDef {
     const NAME: &'static str = "TriplanarPbr";
     type TextureSet = FullTextureSet;
     fn vertex_shader() -> &'static SpirvShader {
-        &POS_NORM_VERTEX
+        &POS_COLOR_NORM_VERTEX
     }
     fn vertex_skinned_shader() -> &'static SpirvShader {
         unimplemented!()
@@ -36,7 +37,7 @@ impl Base3DPassDef for TriplanarPassDef {
         &TRIPLANAR_PBR_FRAGMENT
     }
     fn base_format() -> Vec<VertexFormat> {
-        vec![Position::vertex(), Normal::vertex()]
+        vec![Position::vertex(), Color::vertex(), Normal::vertex()]
     }
     fn skinned_format() -> Vec<VertexFormat> {
         vec![]

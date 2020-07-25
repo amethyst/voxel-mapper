@@ -9,8 +9,8 @@ pub struct TransformSmoother {
 
 impl TransformSmoother {
     pub fn new(weight: f32) -> Self {
-        debug_assert!(0.0 < weight);
-        debug_assert!(weight <= 1.0);
+        assert!(0.0 < weight);
+        assert!(weight <= 1.0);
 
         TransformSmoother {
             weight,

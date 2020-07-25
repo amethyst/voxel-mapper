@@ -9,9 +9,10 @@ layout(std140, set = 0, binding = 0) uniform Projview {
 };
 
 layout(location = 0) in vec3 position;
-layout(location = 1) in vec3 normal;
-layout(location = 2) in mat4 model; // instance rate
-layout(location = 6) in vec4 tint; // instance rate
+layout(location = 1) in vec4 color;
+layout(location = 2) in vec3 normal;
+layout(location = 3) in mat4 model; // instance rate
+layout(location = 7) in vec4 tint; // instance rate
 
 layout(location = 0) out VertexData {
     vec3 position;
@@ -23,6 +24,6 @@ void main() {
     vec4 vertex_position = model * vec4(position, 1.0);
     vertex.position = vertex_position.xyz;
     vertex.normal = mat3(model) * normal;
-    vertex.color = tint;
+    vertex.color = tint * color;
     gl_Position = proj_view * vertex_position;
 }

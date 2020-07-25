@@ -1,12 +1,12 @@
 use crate::{
-    assets::{BoundedMesh, IndexedPosNormVertices, MeshLoader, PosNormVertices},
+    assets::{BoundedMesh, IndexedPosColorNormVertices, MeshLoader, PosColorNormVertices},
     voxel::{decode_distance, Voxel, VoxelGraphics, VoxelInfo, VoxelMaterial},
 };
 
 use amethyst::{
     assets::ProgressCounter,
     core::ecs::prelude::*,
-    renderer::rendy::mesh::{Normal, Position},
+    renderer::rendy::mesh::{Color, Normal, Position},
 };
 use ilattice3 as lat;
 use ilattice3::{
@@ -70,6 +70,23 @@ impl<'a> VoxelMeshLoader<'a> {
         );
         let surface_nets_micros = before_surface_nets.elapsed().as_micros();
 
+        // The vertex format is limited to 4 numbers for material weights.
+        assert!(indices_by_material.len() <= 4);
+        // TODO: make this table for the actual set of materials in the chunk
+        let weight_table: HashMap<VoxelMaterial, [f32; 4]> = [
+            (VoxelMaterial(1), [1.0, 0.0, 0.0, 0.0]),
+            (VoxelMaterial(2), [0.0, 1.0, 0.0, 0.0]),
+            (VoxelMaterial(3), [0.0, 0.0, 1.0, 0.0]),
+            (VoxelMaterial(4), [0.0, 0.0, 0.0, 1.0]),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+        let vertex_material_weights =
+            add_material_weights(positions.len(), indices_by_material.iter(), |m| {
+                weight_table[m]
+            });
+
         let mut num_triangles = 0;
         let meshes = indices_by_material
             .into_iter()
@@ -80,11 +97,20 @@ impl<'a> VoxelMeshLoader<'a> {
                 // Just use the same vertices for each mesh. Not memory efficient, but significantly
                 // faster than trying to split the mesh.
                 let positions = positions.clone().into_iter().map(|p| Position(p)).collect();
+                let colors = vertex_material_weights
+                    .clone()
+                    .into_iter()
+                    .map(|w| Color(w))
+                    .collect();
                 let normals = normals.clone().into_iter().map(|n| Normal(n)).collect();
-                let vertices = PosNormVertices { positions, normals };
+                let vertices = PosColorNormVertices {
+                    positions,
+                    colors,
+                    normals,
+                };
                 let indices: Vec<_> = indices.into_iter().map(|i| i as u32).collect();
                 num_triangles += indices.len() / 3;
-                let ivs = IndexedPosNormVertices { vertices, indices };
+                let ivs = IndexedPosColorNormVertices { vertices, indices };
 
                 (
                     material,
@@ -122,4 +148,24 @@ where
     I: Indexer,
 {
     type Indexer = I;
+}
+
+fn add_material_weights<'a, M: 'a>(
+    num_vertices: usize,
+    indices: impl Iterator<Item = (&'a M, &'a Vec<usize>)>,
+    weight_table: impl Fn(&M) -> [f32; 4],
+) -> Vec<[f32; 4]> {
+    let mut material_weights = vec![[0.0; 4]; num_vertices];
+    for (material, indices) in indices {
+        let material_weight = weight_table(material);
+        for vertex_i in indices.iter() {
+            let w = &mut material_weights[*vertex_i];
+            w[0] += material_weight[0];
+            w[1] += material_weight[1];
+            w[2] += material_weight[2];
+            w[3] += material_weight[3];
+        }
+    }
+
+    material_weights
 }

@@ -4,7 +4,7 @@ use amethyst::{
     assets::{AssetLoaderSystemData, Handle, Progress},
     core::ecs::prelude::*,
     renderer::{
-        rendy::mesh::{MeshBuilder, Normal, Position},
+        rendy::mesh::{Color, MeshBuilder, Normal, Position},
         visibility::BoundingSphere,
         Mesh,
     },
@@ -16,14 +16,15 @@ use std::io::{Read, Write};
 use std::path::Path;
 
 #[derive(Default)]
-pub struct PosNormVertices {
+pub struct PosColorNormVertices {
     pub positions: Vec<Position>,
+    pub colors: Vec<Color>,
     pub normals: Vec<Normal>,
 }
 
-pub struct IndexedPosNormVertices {
+pub struct IndexedPosColorNormVertices {
     pub indices: Vec<u32>,
-    pub vertices: PosNormVertices,
+    pub vertices: PosColorNormVertices,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -41,7 +42,7 @@ pub struct MeshLoader<'a> {
 impl<'a> MeshLoader<'a> {
     pub fn start_loading_pos_norm_mesh<P: Progress>(
         &self,
-        ivs: IndexedPosNormVertices,
+        ivs: IndexedPosColorNormVertices,
         progress: P,
     ) -> BoundedMesh {
         // We can't load empty meshes.
@@ -53,6 +54,7 @@ impl<'a> MeshLoader<'a> {
         let mesh = self.loader.load_from_data(
             MeshBuilder::new()
                 .with_vertices(ivs.vertices.positions)
+                .with_vertices(ivs.vertices.colors)
                 .with_vertices(ivs.vertices.normals)
                 .with_indices(ivs.indices)
                 .into(),
