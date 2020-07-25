@@ -15,6 +15,9 @@ use ilattice3::{find_surface_voxels, prelude::*, Indexer, IsEmpty, LatticeVoxels
 use ncollide3d::partitioning::DBVTLeaf;
 use std::collections::HashMap;
 
+#[cfg(feature = "profiler")]
+use thread_profiler::profile_scope;
+
 #[derive(SystemData)]
 pub struct VoxelMeshManager<'a> {
     entities: Entities<'a>,
@@ -45,8 +48,7 @@ impl<'a> VoxelMeshManager<'a> {
         chunk: &LatticeVoxels<'_, T, Voxel, I>,
         meshes: &ChunkMeshes,
         materials: &HashMap<VoxelMaterial, Handle<Prefab<MaterialPrefab>>>,
-    ) -> u128
-    where
+    ) where
         T: IsEmpty,
         I: Indexer,
     {
@@ -58,11 +60,14 @@ impl<'a> VoxelMeshManager<'a> {
             new_entities.push(entity);
         }
 
-        // Replace the bounding volumes.
-        let before_bvs = std::time::Instant::now();
-        self.remove_bounding_volumes_for_chunk(chunk_key);
-        self.create_bounding_volumes_for_voxels(chunk_key, chunk);
-        let micros_to_create_bvs = before_bvs.elapsed().as_micros();
+        {
+            #[cfg(feature = "profiler")]
+            profile_scope!("update_voxel_bvs");
+
+            // Replace the bounding volumes.
+            self.remove_bounding_volumes_for_chunk(chunk_key);
+            self.create_bounding_volumes_for_voxels(chunk_key, chunk);
+        }
 
         // Replace the entities.
         let mesh_entities = self
@@ -74,8 +79,6 @@ impl<'a> VoxelMeshManager<'a> {
             self.entities.delete(e).unwrap();
         }
         *mesh_entities = new_entities;
-
-        micros_to_create_bvs
     }
 
     /// Creates a new entity with the given mesh and material. Expects the mesh vertices to already

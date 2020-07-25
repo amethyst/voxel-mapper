@@ -22,7 +22,13 @@ rendy = "0.4.1"
 serde = "1.0.114"
 smallvec = "1.4.1"
 structopt = "0.3.15"
-thread_profiler = "0.3.0"
+thread_profiler = { version = "0.3.0", optional = true }
 
 ilattice3 = { git = "https://github.com/bonsairobo/ilattice3" }
 ilattice3-mesh = { git = "https://github.com/bonsairobo/ilattice3-mesh" }
+
+# ilattice3 = { path = "../ilattice3" }
+# ilattice3-mesh = { path = "../ilattice3-mesh" }
+
+[features]
+profiler = ["thread_profiler", "thread_profiler/thread_profiler"]

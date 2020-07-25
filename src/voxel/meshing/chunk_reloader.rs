@@ -167,14 +167,11 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
             mut manager,
         ): Self::SystemData,
     ) {
-        let start = std::time::Instant::now();
-
         let VoxelAssets {
             materials, meshes, ..
         } = &mut *voxel_assets;
 
         // Create mesh entities once change sets have finished loading.
-        let mut total_update_bv_micros = 0;
         if let Some(complete_set) = reload_queue.pop_complete() {
             for complete_chunk in complete_set.chunks.into_iter() {
                 let voxels = LatticeVoxels {
@@ -182,7 +179,7 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
                     palette: &map.voxels.palette,
                 };
                 // Update entities and drop old assets.
-                total_update_bv_micros += manager.update_chunk_mesh_entities(
+                manager.update_chunk_mesh_entities(
                     &complete_chunk.key,
                     &voxels,
                     &complete_chunk.meshes,
@@ -205,8 +202,6 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
         let max_meshes_per_frame = 32;
         // Generate meshes.
         let mut num_chunks_meshed = 0;
-        let mut num_triangles_generated = 0;
-        let mut total_surface_nets_micros = 0;
         while num_chunks_meshed < max_meshes_per_frame {
             let mut meshing_set = match reload_queue.pop_meshing() {
                 Some(set) => set,
@@ -218,10 +213,8 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
                     map: chunk_voxels,
                     palette: &map.voxels.palette,
                 };
-                let (loading_chunk_meshes, num_triangles, surface_nets_micros) =
+                let loading_chunk_meshes =
                     loader.start_loading_chunk(&chunk_voxels, &mut meshing_set.progress);
-                total_surface_nets_micros += surface_nets_micros;
-                num_triangles_generated += num_triangles;
                 meshing_set.chunks_loading.push(LoadingChunk {
                     key: mesh_chunk_key,
                     meshes: loading_chunk_meshes,
@@ -243,18 +236,6 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
             }
         }
 
-        if num_chunks_meshed > 0 {
-            log::debug!(
-                "chunk_reloader took {} millis
-                (surface nets = {} micros) (bounding volumes = {} micros)
-                to reload {} chunks, with {} triangles",
-                start.elapsed().as_millis(),
-                total_surface_nets_micros,
-                total_update_bv_micros,
-                num_chunks_meshed,
-                num_triangles_generated
-            );
-        }
         if !reload_queue.queue.is_empty() {
             log::debug!("Reload queue len = {}", reload_queue.queue.len());
         }
