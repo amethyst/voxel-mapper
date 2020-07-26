@@ -1,4 +1,4 @@
-use crate::{base_3d::Base3DPassDef, render_plugin::RenderBase3D};
+use super::{base_3d::Base3DPassDef, render_plugin::RenderBase3D};
 
 use amethyst::renderer::mtl::FullTextureSet;
 use rendy::{

@@ -1,6 +1,6 @@
 // Copied from amethyst_rendy. All skinning and transparent stuff removed.
 
-use crate::base_3d::{Base3DPassDef, DrawBase3DDesc};
+use super::base_3d::{Base3DPassDef, DrawBase3DDesc};
 
 use amethyst::core::ecs::{DispatcherBuilder, World};
 use amethyst::error::Error;

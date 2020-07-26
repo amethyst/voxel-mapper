@@ -14,7 +14,7 @@ use only_state::OnlyState;
 
 use handsome_voxels::{
     control::{camera::CameraControlSystemDesc, hover_3d::HoverObjectSystem},
-    triplanar_pass::RenderTriplanarPbr,
+    rendering::triplanar_pass::RenderTriplanarPbr,
     voxel::{meshing::chunk_reloader::VoxelChunkReloaderSystemDesc, setter::VoxelSetterSystemDesc},
 };
 

@@ -1,6 +1,6 @@
 // Copied from amethyst_rendy. All skinning and transparent stuff removed.
 
-use crate::material_set::{MaterialId, MaterialSub};
+use super::material_set::{MaterialId, MaterialSub};
 
 use amethyst::assets::{AssetStorage, Handle};
 use amethyst::core::{
