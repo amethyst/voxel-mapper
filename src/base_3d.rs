@@ -1,5 +1,7 @@
 // Copied from amethyst_rendy. All skinning and transparent stuff removed.
 
+use crate::material_set::{MaterialId, MaterialSub};
+
 use amethyst::assets::{AssetStorage, Handle};
 use amethyst::core::{
     ecs::{Join, Read, ReadExpect, ReadStorage, SystemData, World},
@@ -12,7 +14,7 @@ use amethyst::renderer::{
     pod::VertexArgs,
     resources::Tint,
     skinning::JointTransforms,
-    submodules::{DynamicVertexBuffer, EnvironmentSub, MaterialId, MaterialSub},
+    submodules::{DynamicVertexBuffer, EnvironmentSub},
     types::{Backend, Mesh},
     util,
     visibility::Visibility,
