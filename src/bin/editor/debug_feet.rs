@@ -1,4 +1,4 @@
-use handsome_voxels::control::camera::{MainCameraTag, ThirdPersonCameraState};
+use voxel_mapper::control::camera::{MainCameraTag, ThirdPersonCameraState};
 
 use amethyst::{
     core::{ecs::prelude::*, math::Vector3},

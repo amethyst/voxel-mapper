@@ -12,7 +12,7 @@ use flashlight::FlashlightSystem;
 use hover_hint::HoverHintSystem;
 use only_state::OnlyState;
 
-use handsome_voxels::{
+use voxel_mapper::{
     control::{camera::CameraControlSystemDesc, hover_3d::HoverObjectSystem},
     rendering::triplanar_pass::RenderTriplanarPbr,
     voxel::{meshing::chunk_reloader::VoxelChunkReloaderSystemDesc, setter::VoxelSetterSystemDesc},
@@ -90,7 +90,7 @@ fn run_app(map_file: PathBuf) -> amethyst::Result<()> {
 }
 
 #[derive(StructOpt, Debug)]
-#[structopt(name = "handsome-voxels")]
+#[structopt(name = "voxel-mapper-editor")]
 struct Opt {
     #[structopt(parse(from_os_str))]
     map_file: PathBuf,

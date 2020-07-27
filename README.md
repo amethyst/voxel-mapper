@@ -1,11 +1,11 @@
-# Handsome Voxels
+# Voxel Mapper
 
 ![Pic](/screenshots/pic.png)
 
-The Handsome Voxel Editor is an attempt to create beautiful voxel worlds using
-Rust and the Amethyst game engine.
+The Voxel Mapper is a set of Amethyst-compatible systems for creating beautiful
+voxel worlds.
 
-![Demo](/screenshots/handsome_demo.gif)
+![Demo](/screenshots/demo.gif)
 
 To build and run the example map:
 

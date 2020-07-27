@@ -1,6 +1,6 @@
 use crate::bindings::{ActionBinding, GameBindings};
 
-use handsome_voxels::{
+use voxel_mapper::{
     control::{camera::data::CameraData, hover_3d::ObjectsUnderCursor},
     voxel::{
         decode_distance,

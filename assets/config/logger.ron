@@ -1,6 +1,6 @@
 (
     level_filter: Info,
     module_levels: [
-        // ("handsome_voxels::voxel::meshing::chunk_reloader", Debug),
+        // ("voxel_mapper::voxel::meshing::chunk_reloader", Debug),
     ],
 )

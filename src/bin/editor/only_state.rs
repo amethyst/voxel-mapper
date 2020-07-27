@@ -3,7 +3,7 @@ use crate::{
     hover_hint::make_hover_hint_lines,
 };
 
-use handsome_voxels::{
+use voxel_mapper::{
     collision::VoxelBVT,
     control::camera::make_camera,
     voxel::{

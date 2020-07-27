@@ -1,4 +1,4 @@
-use handsome_voxels::{
+use voxel_mapper::{
     control::hover_3d::ObjectsUnderCursor,
     voxel::{voxel_containing_point, MyPoint3},
 };

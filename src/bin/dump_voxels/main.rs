@@ -1,4 +1,4 @@
-use handsome_voxels::{
+use voxel_mapper::{
     assets::{read_bincode_file, BincodeFileError},
     voxel::Voxel,
 };

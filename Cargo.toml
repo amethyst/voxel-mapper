@@ -1,11 +1,11 @@
 [package]
-name = "handsome-voxels"
+name = "voxel-mapper"
 version = "0.1.0"
 authors = ["Duncan <bonsairobo@gmail.com>"]
 edition = "2018"
 
 [lib]
-name = "handsome_voxels"
+name = "voxel_mapper"
 path = "src/lib.rs"
 
 [dependencies]
