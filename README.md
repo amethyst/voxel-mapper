@@ -2,9 +2,6 @@
 
 ![Pic](/screenshots/pic.png)
 
-Do you like voxels but think Minecraft is ugly? Maybe we can give those voxels
-a makeover.
-
 The Handsome Voxel Editor is an attempt to create beautiful voxel worlds using
 Rust and the Amethyst game engine.
 
