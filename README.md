@@ -1,4 +1,4 @@
-# Voxel Mapper
+<img src="screenshots/splash.png" alt="Amethyst Game Engine" />
 
 ![Pic](/screenshots/pic.png)
 
