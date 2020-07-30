@@ -46,11 +46,8 @@ impl<'a> System<'a> for VoxelSetterSystem {
     );
 
     fn run(&mut self, (mut voxel_map, mut chunk_changed_events, set_events): Self::SystemData) {
-        // Always consume the events.
-        let events: Vec<SetVoxelsEvent> = set_events.read(&mut self.reader_id).cloned().collect();
-
         let mut chunks_changed = HashSet::new();
-        for SetVoxelsEvent { voxels } in events.into_iter() {
+        for SetVoxelsEvent { voxels } in set_events.read(&mut self.reader_id) {
             for (
                 p,
                 SetVoxel {
@@ -60,11 +57,9 @@ impl<'a> System<'a> for VoxelSetterSystem {
             ) in voxels.into_iter()
             {
                 // Set the new voxel.
-                // TODO: maybe return the chunk key along with the voxel?
-                let voxel = voxel_map.voxels.map.get_mut_or_create(&p, EMPTY_VOXEL);
-                voxel.distance = encode_distance(new_dist);
-                voxel.palette_address = new_address;
-                let chunk_key = voxel_map.voxels.map.chunk_key(&p);
+                let (chunk_key, voxel) = voxel_map.voxels.map.get_mut_or_create(&p, EMPTY_VOXEL);
+                voxel.distance = encode_distance(*new_dist);
+                voxel.palette_address = *new_address;
                 chunks_changed.insert(chunk_key);
 
                 // If the point is close to a boundary, then we need to update the adjacent chunks.

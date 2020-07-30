@@ -202,7 +202,7 @@ vec3 triplanar_normal_to_world_splatted(sampler2DArray samp, vec4 mtl_weights, v
 
 void main() {
     // Do triplanar mapping (world space -> UVs).
-    float texture_scale = 2.0;
+    float texture_scale = 10.0;
     vec3 blend = pow(abs(vertex.normal), vec3(3));
     blend = blend / (blend.x + blend.y + blend.z);
     vec2 uv_x = tex_coords(vertex.position.zy / texture_scale, uv_offset);

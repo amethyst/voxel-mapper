@@ -13,6 +13,7 @@ use only_state::OnlyState;
 use voxel_mapper::{
     control::{camera::CameraControlSystemDesc, hover_3d::HoverObjectSystem},
     rendering::triplanar_pass::RenderTriplanarPbr,
+    // TODO: bundle these
     voxel::{meshing::chunk_reloader::VoxelChunkReloaderSystemDesc, setter::VoxelSetterSystemDesc},
 };
 
