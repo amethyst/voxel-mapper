@@ -2,7 +2,9 @@ use super::loader::ChunkMeshes;
 use crate::{
     assets::BoundedMesh,
     collision::{VoxelBVT, VoxelBVTLeaves},
-    voxel::{meshing::VoxelMeshEntities, voxel_aabb, Voxel, VoxelAssets, VoxelMap, VoxelMaterial},
+    voxel::{
+        meshing::VoxelMeshEntities, voxel_aabb, Voxel, VoxelAssets, VoxelMap, VoxelMaterialArrayId,
+    },
 };
 
 use amethyst::{
@@ -32,13 +34,15 @@ impl<'a> VoxelMeshManager<'a> {
     /// expects that mesh assets are finished loading.
     pub fn make_all_chunk_mesh_entities(&mut self, assets: &mut VoxelAssets, map: &VoxelMap) {
         let VoxelAssets {
-            materials, meshes, ..
+            material_arrays,
+            meshes,
+            ..
         } = assets;
 
         for chunk_key in map.voxels.map.chunk_keys() {
             let chunk_meshes = meshes.chunk_meshes.get(chunk_key).unwrap();
             let chunk = map.voxels.get_chunk_and_boundary(chunk_key);
-            self.update_chunk_mesh_entities(chunk_key, &chunk, &chunk_meshes, materials);
+            self.update_chunk_mesh_entities(chunk_key, &chunk, &chunk_meshes, material_arrays);
         }
     }
 
@@ -47,16 +51,16 @@ impl<'a> VoxelMeshManager<'a> {
         chunk_key: &lat::Point,
         chunk: &LatticeVoxels<'_, T, Voxel, I>,
         meshes: &ChunkMeshes,
-        materials: &HashMap<VoxelMaterial, Handle<Prefab<MaterialPrefab>>>,
+        material_arrays: &HashMap<VoxelMaterialArrayId, Handle<Prefab<MaterialPrefab>>>,
     ) where
         T: IsEmpty,
         I: Indexer,
     {
         // Make new entities.
         let mut new_entities = Vec::new();
-        for (material, mesh) in meshes.meshes.iter().cloned() {
-            let material = materials[&material].clone();
-            let entity = self.make_voxel_mesh_entity(mesh, material);
+        for (material_array_id, mesh) in meshes.meshes.iter().cloned() {
+            let material_array = material_arrays[&material_array_id].clone();
+            let entity = self.make_voxel_mesh_entity(mesh, material_array);
             new_entities.push(entity);
         }
 
@@ -86,13 +90,13 @@ impl<'a> VoxelMeshManager<'a> {
     fn make_voxel_mesh_entity(
         &self,
         mesh: BoundedMesh,
-        material: Handle<Prefab<MaterialPrefab>>,
+        material_array: Handle<Prefab<MaterialPrefab>>,
     ) -> Entity {
         let BoundedMesh { mesh, sphere } = mesh;
 
         self.lazy
             .create_entity(&self.entities)
-            .with(material)
+            .with(material_array)
             .with(mesh)
             .with(Transform::default())
             .with(sphere)

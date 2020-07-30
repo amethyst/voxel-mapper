@@ -3,7 +3,8 @@ Prefab(
     entities: [
         PrefabEntity(
             data: (
-                albedo: File("materials/sewer_brick/albedo.png", ("IMAGE", (
+                albedo: File("material_arrays/blend1/albedo.png", ("IMAGE", (
+                    kind: D2Array(layers: 2),
                     generate_mips: true,
                     sampler_info: (
                         min_filter: Linear,
@@ -21,7 +22,27 @@ Prefab(
                         anisotropic: Off,
                     ),
                 ))),
-                metallic_roughness: File("materials/sewer_brick/metal_rough.png", ("IMAGE", (
+                // ambient_occlusion: File("material_arrays/blend1/ao.png", ("IMAGE", (
+                //     kind: D2Array(layers: 2),
+                //     generate_mips: true,
+                //     sampler_info: (
+                //         min_filter: Linear,
+                //         mag_filter: Linear,
+                //         mip_filter: Linear,
+                //         wrap_mode: (Tile, Tile, Tile),
+                //         lod_bias: (0),
+                //         lod_range: (
+                //             start: ( 0 ),
+                //             end: ( 8000 ),
+                //         ),
+                //         comparison: None,
+                //         border: (0),
+                //         normalized: true,
+                //         anisotropic: Off,
+                //     ),
+                // ))),
+                metallic_roughness: File("material_arrays/blend1/metal_rough.png", ("IMAGE", (
+                    kind: D2Array(layers: 2),
                     generate_mips: true,
                     sampler_info: (
                         min_filter: Linear,
@@ -39,7 +60,8 @@ Prefab(
                         anisotropic: Off,
                     ),
                 ))),
-                normal: File("materials/sewer_brick/normal.png", ("IMAGE", (
+                normal: File("material_arrays/blend1/normal.png", ("IMAGE", (
+                    kind: D2Array(layers: 2),
                     repr: Unorm,
                     generate_mips: true,
                     sampler_info: (

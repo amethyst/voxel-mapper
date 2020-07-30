@@ -30,7 +30,7 @@ pub struct VoxelFlags {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct VoxelInfo {
     pub flags: VoxelFlags,
-    pub material: VoxelMaterial,
+    pub material_index: VoxelMaterialIndex,
 }
 
 impl IsEmpty for VoxelInfo {
@@ -85,13 +85,13 @@ pub fn decode_distance(encoded: i8) -> f32 {
 
 /// The data required for each voxel to generate a mesh.
 pub struct VoxelGraphics {
-    pub material: VoxelMaterial,
+    pub material_index: VoxelMaterialIndex,
     pub distance: f32,
 }
 
-impl SurfaceNetsVoxel<VoxelMaterial> for VoxelGraphics {
-    fn material(&self) -> VoxelMaterial {
-        self.material
+impl SurfaceNetsVoxel<VoxelMaterialIndex> for VoxelGraphics {
+    fn material(&self) -> VoxelMaterialIndex {
+        self.material_index
     }
 
     fn distance(&self) -> f32 {
@@ -106,8 +106,8 @@ pub struct VoxelMap {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct VoxelPaletteAssets {
-    /// Material file identifiers.
-    pub materials: HashMap<VoxelMaterialInt, String>,
+    /// Material array prefab file identifiers.
+    pub material_arrays: HashMap<usize, String>,
 }
 
 pub const VOXEL_CHUNK_SIZE: lat::Point = lat::Point {
@@ -116,18 +116,27 @@ pub const VOXEL_CHUNK_SIZE: lat::Point = lat::Point {
     z: 16,
 };
 
+/// Identifier for one of the arrays of materials. Each mesh can only have one material array bound
+/// for the draw call.
 #[derive(
     Clone, Copy, Debug, Default, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
 )]
-pub struct VoxelMaterial(pub VoxelMaterialInt);
+pub struct VoxelMaterialArrayId(pub usize);
 
-pub type VoxelMaterialInt = u8;
+/// Index into the material array that's bound while drawing a voxel mesh. The vertex format will
+/// contain a weighted vector of these indices.
+#[derive(Clone, Copy, Debug, Deserialize, Hash, Eq, PartialEq, Serialize)]
+pub struct VoxelMaterialIndex(pub VoxelMaterialIndexInt);
+
+pub type VoxelMaterialIndexInt = u8;
 
 #[derive(Default)]
 pub struct VoxelAssets {
-    pub materials: HashMap<VoxelMaterial, Handle<Prefab<MaterialPrefab>>>,
+    /// Although these are just `Material`s, each `Texture` can have multiple layers for the purpose
+    /// of splatting (blending between layers).
+    pub material_arrays: HashMap<VoxelMaterialArrayId, Handle<Prefab<MaterialPrefab>>>,
+    /// Generated at runtime, the asset handles are stored here.
     pub meshes: VoxelMeshes,
-    pub debug: bool,
 }
 
 fn floor_float_vector_to_lattice_point(v: &Vector3<f32>) -> lat::Point {

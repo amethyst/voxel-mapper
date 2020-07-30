@@ -174,7 +174,9 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
         profile_scope!("chunk_reloader");
 
         let VoxelAssets {
-            materials, meshes, ..
+            material_arrays,
+            meshes,
+            ..
         } = &mut *voxel_assets;
 
         // Create mesh entities once change sets have finished loading.
@@ -189,7 +191,7 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
                     &complete_chunk.key,
                     &voxels,
                     &complete_chunk.meshes,
-                    materials,
+                    material_arrays,
                 );
                 let _drop_old_chunk_meshes = meshes
                     .chunk_meshes

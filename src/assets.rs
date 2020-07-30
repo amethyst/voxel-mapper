@@ -40,7 +40,7 @@ pub struct MeshLoader<'a> {
 }
 
 impl<'a> MeshLoader<'a> {
-    pub fn start_loading_pos_norm_mesh<P: Progress>(
+    pub fn start_loading_pos_color_norm_mesh<P: Progress>(
         &self,
         ivs: IndexedPosColorNormVertices,
         progress: P,

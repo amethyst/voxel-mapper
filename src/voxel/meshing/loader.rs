@@ -1,6 +1,6 @@
 use crate::{
     assets::{BoundedMesh, IndexedPosColorNormVertices, MeshLoader, PosColorNormVertices},
-    voxel::{decode_distance, Voxel, VoxelGraphics, VoxelInfo, VoxelMaterial},
+    voxel::{decode_distance, Voxel, VoxelGraphics, VoxelInfo, VoxelMaterialArrayId},
 };
 
 use amethyst::{
@@ -26,7 +26,7 @@ pub struct VoxelMeshLoader<'a> {
 }
 
 pub struct ChunkMeshes {
-    pub meshes: Vec<(VoxelMaterial, BoundedMesh)>,
+    pub meshes: Vec<(VoxelMaterialArrayId, BoundedMesh)>,
 }
 
 #[derive(Default)]
@@ -66,7 +66,7 @@ impl<'a> VoxelMeshLoader<'a> {
         let SurfaceNetsOutput {
             positions,
             normals,
-            indices_by_material,
+            indices,
             surface_points,
         } = {
             #[cfg(feature = "profiler")]
@@ -78,43 +78,38 @@ impl<'a> VoxelMeshLoader<'a> {
             )
         };
 
+        if indices.is_empty() {
+            return ChunkMeshes { meshes: Vec::new() };
+        }
+
         let vertex_material_weights = calculate_material_weights(
             &LatticeVoxelsForMeshing(chunk_and_boundary),
             &surface_points,
         );
 
-        let meshes = indices_by_material
-            .into_iter()
-            .map(|(material, indices)| {
-                // TODO: eventually it would be nice to have enough control so that the same vertex
-                // buffer could be used with multiple index buffers
-                //
-                // Just use the same vertices for each mesh. Not memory efficient, but significantly
-                // faster than trying to split the mesh.
-                let positions = positions.clone().into_iter().map(|p| Position(p)).collect();
-                let colors = vertex_material_weights
-                    .clone()
-                    .into_iter()
-                    .map(|w| Color(w))
-                    .collect();
-                let normals = normals.clone().into_iter().map(|n| Normal(n)).collect();
-                let vertices = PosColorNormVertices {
-                    positions,
-                    colors,
-                    normals,
-                };
-                let indices: Vec<_> = indices.into_iter().map(|i| i as u32).collect();
-                let ivs = IndexedPosColorNormVertices { vertices, indices };
+        let mesh = {
+            let positions = positions.clone().into_iter().map(|p| Position(p)).collect();
+            let colors = vertex_material_weights
+                .into_iter()
+                .map(|w| Color(w))
+                .collect();
+            let normals = normals.clone().into_iter().map(|n| Normal(n)).collect();
+            let vertices = PosColorNormVertices {
+                positions,
+                colors,
+                normals,
+            };
+            let indices: Vec<_> = indices.into_iter().map(|i| i as u32).collect();
+            let ivs = IndexedPosColorNormVertices { vertices, indices };
 
-                (
-                    material,
-                    self.mesh_loader
-                        .start_loading_pos_norm_mesh(ivs, &mut *progress),
-                )
-            })
-            .collect();
+            self.mesh_loader
+                .start_loading_pos_color_norm_mesh(ivs, &mut *progress)
+        };
 
-        ChunkMeshes { meshes }
+        ChunkMeshes {
+            // TODO: don't hardcode the ID
+            meshes: vec![(VoxelMaterialArrayId(1), mesh)],
+        }
     }
 }
 
@@ -128,12 +123,11 @@ where
 
     fn get_linear(&self, i: usize) -> Self::Data {
         let voxel = self.0.map.get_linear(i);
-        let graphics = VoxelGraphics {
-            material: self.0.palette[voxel.get_palette_address()].material,
-            distance: decode_distance(voxel.distance),
-        };
 
-        graphics
+        VoxelGraphics {
+            material_index: self.0.palette[voxel.get_palette_address()].material_index,
+            distance: decode_distance(voxel.distance),
+        }
     }
 }
 
@@ -159,18 +153,13 @@ where
     #[cfg(feature = "profiler")]
     profile_scope!("material_weights");
 
-    // The vertex format is limited to 4 numbers for material weights.
-    // TODO: make this table for the actual set of materials in the chunk
-    // PERF: make this into a sparse Vec instead of a HashMap
-    let weight_table: HashMap<VoxelMaterial, [f32; 4]> = [
-        (VoxelMaterial(1), [1.0, 0.0, 0.0, 0.0]),
-        (VoxelMaterial(2), [0.0, 1.0, 0.0, 0.0]),
-        (VoxelMaterial(3), [0.0, 0.0, 1.0, 0.0]),
-        (VoxelMaterial(4), [0.0, 0.0, 0.0, 1.0]),
-    ]
-    .iter()
-    .cloned()
-    .collect();
+    // The current vertex format is limited to 4 numbers for material weights.
+    let weight_table = vec![
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ];
 
     let sup = voxels.get_extent().get_local_supremum();
 
@@ -189,9 +178,7 @@ where
             let q_linear = p_linear + offset;
             let voxel = voxels.get_linear(q_linear);
             if voxel.distance < 0.0 {
-                let material_w = weight_table
-                    .get(&voxel.material)
-                    .expect("Negative voxel must have a material");
+                let material_w = weight_table[voxel.material_index.0 as usize];
                 w[0] += material_w[0];
                 w[1] += material_w[1];
                 w[2] += material_w[2];

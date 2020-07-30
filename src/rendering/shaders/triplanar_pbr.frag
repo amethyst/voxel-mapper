@@ -94,12 +94,12 @@ layout(std140, set = 1, binding = 0) uniform Material {
     float alpha_cutoff;
 };
 
-layout(set = 1, binding = 1) uniform sampler2D albedo[1];
-layout(set = 1, binding = 2) uniform sampler2D emission[1];
-layout(set = 1, binding = 3) uniform sampler2D normal[1];
-layout(set = 1, binding = 4) uniform sampler2D metallic_roughness[1];
-layout(set = 1, binding = 5) uniform sampler2D ambient_occlusion[1];
-layout(set = 1, binding = 6) uniform sampler2D cavity[1];
+layout(set = 1, binding = 1) uniform sampler2DArray albedo;
+layout(set = 1, binding = 2) uniform sampler2DArray emission;
+layout(set = 1, binding = 3) uniform sampler2DArray normal;
+layout(set = 1, binding = 4) uniform sampler2DArray metallic_roughness;
+layout(set = 1, binding = 5) uniform sampler2DArray ambient_occlusion;
+layout(set = 1, binding = 6) uniform sampler2DArray cavity;
 
 layout(location = 0) in VertexData {
     vec3 position;
@@ -146,18 +146,18 @@ vec3 compute_light(vec3 attenuation,
     return resulting_light;
 }
 
-vec4 triplanar_texture(sampler2D tex, vec3 blend, vec2 uv_x, vec2 uv_y, vec2 uv_z) {
-    vec4 x = texture(tex, uv_x);
-    vec4 y = texture(tex, uv_y);
-    vec4 z = texture(tex, uv_z);
+vec4 triplanar_texture(sampler2DArray samp, float layer, vec3 blend, vec2 uv_x, vec2 uv_y, vec2 uv_z) {
+    vec4 x = texture(samp, vec3(uv_x, layer));
+    vec4 y = texture(samp, vec3(uv_y, layer));
+    vec4 z = texture(samp, vec3(uv_z, layer));
     return blend.x * x + blend.y * y + blend.z * z;
 }
 
-vec3 triplanar_normal_to_world(sampler2D tex, vec3 blend, vec2 uv_x, vec2 uv_y, vec2 uv_z, vec3 surf_normal) {
+vec3 triplanar_normal_to_world(sampler2DArray samp, float layer, vec3 blend, vec2 uv_x, vec2 uv_y, vec2 uv_z, vec3 surf_normal) {
     // Important that the texture is loaded as Unorm.
-    vec3 tnormalx = 2.0 * texture(tex, uv_x).rgb - 1.0;
-    vec3 tnormaly = 2.0 * texture(tex, uv_y).rgb - 1.0;
-    vec3 tnormalz = 2.0 * texture(tex, uv_z).rgb - 1.0;
+    vec3 tnormalx = 2.0 * texture(samp, vec3(uv_x, layer)).rgb - 1.0;
+    vec3 tnormaly = 2.0 * texture(samp, vec3(uv_y, layer)).rgb - 1.0;
+    vec3 tnormalz = 2.0 * texture(samp, vec3(uv_z, layer)).rgb - 1.0;
 
     // Use swizzle method to convert normal into world space.
     // Get the sign (-1 or 1) of the surface normal
@@ -174,6 +174,20 @@ vec3 triplanar_normal_to_world(sampler2D tex, vec3 blend, vec2 uv_x, vec2 uv_y, 
     );
 }
 
+vec4 triplanar_texture_splatted(sampler2DArray samp, vec4 mtl_weights, vec3 blend, vec2 uv_x, vec2 uv_y, vec2 uv_z) {
+    // TODO: always use 4 layers
+    vec4 v0 = triplanar_texture(samp, 0.0, blend, uv_x, uv_y, uv_z);
+    vec4 v1 = triplanar_texture(samp, 1.0, blend, uv_x, uv_y, uv_z);
+    return mtl_weights.r * v0 + mtl_weights.g * v1;
+}
+
+vec3 triplanar_normal_to_world_splatted(sampler2DArray samp, vec4 mtl_weights, vec3 blend, vec2 uv_x, vec2 uv_y, vec2 uv_z, vec3 surf_normal) {
+    // TODO: always use 4 layers
+    vec3 v0 = triplanar_normal_to_world(samp, 0.0, blend, uv_x, uv_y, uv_z, surf_normal);
+    vec3 v1 = triplanar_normal_to_world(samp, 1.0, blend, uv_x, uv_y, uv_z, surf_normal);
+    return normalize(mtl_weights.r * v0 + mtl_weights.g * v1);
+}
+
 void main() {
     // Do triplanar mapping (world space -> UVs).
     float texture_scale = 2.0;
@@ -183,15 +197,15 @@ void main() {
     vec2 uv_y = tex_coords(vertex.position.xz / texture_scale, uv_offset);
     vec2 uv_z = tex_coords(vertex.position.xy / texture_scale, uv_offset);
 
-    vec4 albedo_alpha       = triplanar_texture(albedo[0], blend, uv_x, uv_y, uv_z);
+    vec4 albedo_alpha       = triplanar_texture_splatted(albedo, vertex.material_weights, blend, uv_x, uv_y, uv_z);
     float alpha             = albedo_alpha.a;
     if(alpha < alpha_cutoff) discard;
 
     vec3 albedo             = albedo_alpha.rgb;
-    vec3 emission           = triplanar_texture(emission[0], blend, uv_x, uv_y, uv_z).rgb;
-    vec3 normal             = triplanar_normal_to_world(normal[0], blend, uv_x, uv_y, uv_z, vertex.normal);
-    vec2 metallic_roughness = triplanar_texture(metallic_roughness[0], blend, uv_x, uv_y, uv_z).bg;
-    float ambient_occlusion = triplanar_texture(ambient_occlusion[0], blend, uv_x, uv_y, uv_z).r;
+    vec3 emission           = triplanar_texture_splatted(emission, vertex.material_weights, blend, uv_x, uv_y, uv_z).rgb;
+    vec3 normal             = triplanar_normal_to_world_splatted(normal, vertex.material_weights, blend, uv_x, uv_y, uv_z, vertex.normal);
+    vec2 metallic_roughness = triplanar_texture_splatted(metallic_roughness, vertex.material_weights, blend, uv_x, uv_y, uv_z).bg;
+    float ambient_occlusion = triplanar_texture_splatted(ambient_occlusion, vertex.material_weights, blend, uv_x, uv_y, uv_z).r;
     // TODO: Use cavity
     // float cavity            = texture(cavity, tex_coords(vertex.tex_coord, final_tex_coords).r;
     float metallic          = metallic_roughness.r;
@@ -291,6 +305,5 @@ void main() {
     vec3 ambient = ambient_color * albedo * ambient_occlusion;
     vec3 color = ambient + lighted + emission;
 
-    // Temporary: visualize the material weights by color
-    out_color = vec4(color, alpha) * vertex.color * vertex.material_weights;
+    out_color = vec4(color, alpha) * vertex.color;
 }

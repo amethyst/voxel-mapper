@@ -1,6 +1,4 @@
-use super::{
-    meshing::loader::VoxelMeshLoader, VoxelAssets, VoxelMap, VoxelMaterial, VoxelMaterialInt,
-};
+use super::{meshing::loader::VoxelMeshLoader, VoxelAssets, VoxelMap, VoxelMaterialArrayId};
 
 use amethyst::{
     assets::{Handle, Prefab, PrefabLoader, ProgressCounter, RonFormat},
@@ -22,34 +20,35 @@ impl<'a> VoxelLoader<'a> {
         map: VoxelMap,
         progress: &mut ProgressCounter,
     ) -> (VoxelAssets, VoxelMap) {
-        let materials = self.start_loading_materials(&map.palette_assets.materials, &mut *progress);
+        let material_arrays =
+            self.start_loading_materials(&map.palette_assets.material_arrays, &mut *progress);
         let meshes = self.mesh_loader.start_loading(&map.voxels, &mut *progress);
 
-        let assets = VoxelAssets {
-            materials,
-            meshes,
-            debug: false,
-        };
-
-        (assets, map)
+        (
+            VoxelAssets {
+                material_arrays,
+                meshes,
+            },
+            map,
+        )
     }
 
     fn start_loading_materials(
         &mut self,
-        material_set: &HashMap<VoxelMaterialInt, String>,
+        material_array_set: &HashMap<usize, String>,
         progress: &mut ProgressCounter,
-    ) -> HashMap<VoxelMaterial, Handle<Prefab<MaterialPrefab>>> {
-        let materials_dir =
-            application_dir("assets/materials").expect("Failed to get materials dir.");
+    ) -> HashMap<VoxelMaterialArrayId, Handle<Prefab<MaterialPrefab>>> {
+        let material_arrays_dir =
+            application_dir("assets/material_arrays").expect("Failed to get material_arrays dir.");
 
-        material_set
+        material_array_set
             .iter()
-            .map(|(m, mtl_name)| {
+            .map(|(array_id, mtl_array_name)| {
                 (
-                    VoxelMaterial(*m),
+                    VoxelMaterialArrayId(*array_id),
                     self.material_loader.load(
-                        materials_dir
-                            .join(mtl_name)
+                        material_arrays_dir
+                            .join(mtl_array_name)
                             .join("prefab.ron")
                             .to_str()
                             .unwrap(),

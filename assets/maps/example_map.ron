@@ -1,9 +1,8 @@
 (
     palette_spec: (
         assets: (
-            materials: {
-                1: "stepping_stones",
-                2: "sewer_brick",
+            material_arrays: {
+                1: "blend1",
             },
         ),
         infos: [
@@ -13,7 +12,7 @@
                     is_floor: false,
                     is_empty: true,
                 ),
-                material: (0),
+                material_index: (0),
             ),
             // Solid 1
             (
@@ -21,7 +20,7 @@
                     is_floor: true,
                     is_empty: false,
                 ),
-                material: (1),
+                material_index: (1),
             ),
             // Solid 2
             (
@@ -29,7 +28,7 @@
                     is_floor: false,
                     is_empty: false,
                 ),
-                material: (2),
+                material_index: (0),
             ),
         ],
     ),
