@@ -7,7 +7,9 @@ voxel worlds.
 
 ![Demo](/screenshots/demo.gif)
 
-To build and run the example map:
+## Usage
+
+To build and run with the example assets:
 
 ```
 GRAPHICS_BACKEND=metal
@@ -18,6 +20,9 @@ When you exit the app, a binary file "saved_voxels.bin" will contain the map you
 You can load it back into the editor by setting `voxels_file_path: Some("saved_voxels.bin")` in "assets/maps/example_map.ron."
 
 Control bindings can be found in "assets/config/map_editor_bindings.ron".
+
+If you want to import your own material images, take a look at [material-converter](https://github.com/bonsairobo/material-converter).
+It makes it easy to import material images from sites like freepbr.com (don't you wish they meant the beer?).
 
 ## Development
 
