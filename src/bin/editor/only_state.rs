@@ -1,6 +1,5 @@
 use crate::{
-    debug_feet::make_camera_feet_lines, edit_voxel::PaintBrush, flashlight::make_flashlight,
-    hover_hint::make_hover_hint_lines,
+    debug_feet::make_camera_feet_lines, edit_voxel::PaintBrush, hover_hint::make_hover_hint_lines,
 };
 
 use voxel_mapper::{
@@ -19,10 +18,15 @@ use amethyst::{
     core::{
         ecs::prelude::*,
         math::{Point3, Vector3},
+        Transform,
     },
     input::{is_key_down, VirtualKeyCode},
     prelude::*,
-    renderer::{debug_drawing::DebugLinesComponent, palette::Srgba},
+    renderer::{
+        debug_drawing::DebugLinesComponent,
+        light::{Light, PointLight},
+        palette::{rgb::Rgb, Srgba},
+    },
 };
 use std::path::PathBuf;
 
@@ -62,7 +66,7 @@ impl SimpleState for OnlyState {
 
         make_hover_hint_lines(world);
         make_gridlines(100, world);
-        make_flashlight(5.0, world);
+        make_sunlight(10.0, world);
         make_camera(
             Point3::new(0.0, 10.0, 0.0),
             Point3::new(0.0, 0.0, 0.0),
@@ -118,4 +122,17 @@ fn make_gridlines(num_grid_lines: usize, world: &mut World) {
     }
 
     world.create_entity().with(lines).build();
+}
+
+fn make_sunlight(intensity: f32, world: &mut World) {
+    let light: Light = PointLight {
+        intensity,
+        color: Rgb::new(1.0, 1.0, 1.0),
+        ..PointLight::default()
+    }
+    .into();
+    let mut tfm = Transform::default();
+    *tfm.translation_mut() = Vector3::new(0.0, 100.0, 0.0);
+
+    world.create_entity().with(light).with(tfm).build();
 }

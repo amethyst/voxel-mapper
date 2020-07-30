@@ -1,14 +1,12 @@
 mod bindings;
 mod debug_feet;
 mod edit_voxel;
-mod flashlight;
 mod hover_hint;
 mod only_state;
 
 use bindings::GameBindings;
 use debug_feet::DrawCameraFeetSystem;
 use edit_voxel::EditVoxelSystemDesc;
-use flashlight::FlashlightSystem;
 use hover_hint::HoverHintSystem;
 use only_state::OnlyState;
 
@@ -60,7 +58,6 @@ fn run_app(map_file: PathBuf) -> amethyst::Result<()> {
             &[],
         )
         .with(DrawCameraFeetSystem, "draw_camera_feet", &[])
-        .with(FlashlightSystem, "flashlight_system", &[])
         .with(
             HoverObjectSystem::<GameBindings>::default(),
             "hover_object",
