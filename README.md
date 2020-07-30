@@ -29,10 +29,11 @@ It's early days for this project. These features are currently supported:
 - physically-based, triplanar material rendering, courtesy of Amethyst
 - a voxel paintbrush
 - a camera controller that resolves collisions with the voxels
+- texture splatting
 
 Planned features:
 
-- texture splatting
+- more realistic texture splatting using depth textures
 - texture detiling
 - more materials
 - dynamic voxel types (e.g. water)
