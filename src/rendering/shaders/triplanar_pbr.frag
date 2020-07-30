@@ -175,19 +175,29 @@ vec3 triplanar_normal_to_world(sampler2DArray samp, float layer, vec3 blend, vec
 }
 
 vec4 triplanar_texture_splatted(sampler2DArray samp, vec4 mtl_weights, vec3 blend, vec2 uv_x, vec2 uv_y, vec2 uv_z) {
-    // TODO: always use 4 layers
     vec4 v0 = triplanar_texture(samp, 0.0, blend, uv_x, uv_y, uv_z);
     vec4 v1 = triplanar_texture(samp, 1.0, blend, uv_x, uv_y, uv_z);
+    vec4 v2 = triplanar_texture(samp, 2.0, blend, uv_x, uv_y, uv_z);
+    vec4 v3 = triplanar_texture(samp, 3.0, blend, uv_x, uv_y, uv_z);
     // TODO: depth maps
-    return mtl_weights.r * v0 + mtl_weights.g * v1;
+    return mtl_weights.r * v0 +
+           mtl_weights.g * v1 +
+           mtl_weights.b * v2 +
+           mtl_weights.a * v3;
 }
 
 vec3 triplanar_normal_to_world_splatted(sampler2DArray samp, vec4 mtl_weights, vec3 blend, vec2 uv_x, vec2 uv_y, vec2 uv_z, vec3 surf_normal) {
-    // TODO: always use 4 layers
     vec3 v0 = triplanar_normal_to_world(samp, 0.0, blend, uv_x, uv_y, uv_z, surf_normal);
     vec3 v1 = triplanar_normal_to_world(samp, 1.0, blend, uv_x, uv_y, uv_z, surf_normal);
+    vec3 v2 = triplanar_normal_to_world(samp, 2.0, blend, uv_x, uv_y, uv_z, surf_normal);
+    vec3 v3 = triplanar_normal_to_world(samp, 3.0, blend, uv_x, uv_y, uv_z, surf_normal);
     // TODO: depth maps
-    return normalize(mtl_weights.r * v0 + mtl_weights.g * v1);
+    return normalize(
+        mtl_weights.r * v0 +
+        mtl_weights.g * v1 +
+        mtl_weights.b * v2 +
+        mtl_weights.a * v3
+    );
 }
 
 void main() {

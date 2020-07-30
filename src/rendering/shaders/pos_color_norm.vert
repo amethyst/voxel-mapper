@@ -26,6 +26,6 @@ void main() {
     vertex.position = vertex_position.xyz;
     vertex.normal = mat3(model) * normal;
     vertex.color = tint;
-    vertex.material_weights = normalize(material_weights);
+    vertex.material_weights = material_weights / dot(material_weights, vec4(1.0));
     gl_Position = proj_view * vertex_position;
 }

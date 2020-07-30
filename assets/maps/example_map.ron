@@ -2,7 +2,7 @@
     palette_spec: (
         assets: (
             material_arrays: {
-                1: "blend1",
+                1: "grass_rock_snow_dirt",
             },
         ),
         infos: [
@@ -20,15 +20,31 @@
                     is_floor: true,
                     is_empty: false,
                 ),
-                material_index: (1),
+                material_index: (0),
             ),
             // Solid 2
             (
                 flags: (
-                    is_floor: false,
+                    is_floor: true,
                     is_empty: false,
                 ),
-                material_index: (0),
+                material_index: (1),
+            ),
+            // Solid 3
+            (
+                flags: (
+                    is_floor: true,
+                    is_empty: false,
+                ),
+                material_index: (2),
+            ),
+            // Solid 4
+            (
+                flags: (
+                    is_floor: true,
+                    is_empty: false,
+                ),
+                material_index: (3),
             ),
         ],
     ),
