@@ -178,6 +178,7 @@ vec4 triplanar_texture_splatted(sampler2DArray samp, vec4 mtl_weights, vec3 blen
     // TODO: always use 4 layers
     vec4 v0 = triplanar_texture(samp, 0.0, blend, uv_x, uv_y, uv_z);
     vec4 v1 = triplanar_texture(samp, 1.0, blend, uv_x, uv_y, uv_z);
+    // TODO: depth maps
     return mtl_weights.r * v0 + mtl_weights.g * v1;
 }
 
@@ -185,6 +186,7 @@ vec3 triplanar_normal_to_world_splatted(sampler2DArray samp, vec4 mtl_weights, v
     // TODO: always use 4 layers
     vec3 v0 = triplanar_normal_to_world(samp, 0.0, blend, uv_x, uv_y, uv_z, surf_normal);
     vec3 v1 = triplanar_normal_to_world(samp, 1.0, blend, uv_x, uv_y, uv_z, surf_normal);
+    // TODO: depth maps
     return normalize(mtl_weights.r * v0 + mtl_weights.g * v1);
 }
 

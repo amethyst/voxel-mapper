@@ -1,4 +1,4 @@
-use super::{meshing::loader::VoxelMeshLoader, VoxelAssets, VoxelMap, VoxelMaterialArrayId};
+use super::{meshing::loader::VoxelMeshLoader, VoxelArrayMaterialId, VoxelAssets, VoxelMap};
 
 use amethyst::{
     assets::{Handle, Prefab, PrefabLoader, ProgressCounter, RonFormat},
@@ -37,7 +37,7 @@ impl<'a> VoxelLoader<'a> {
         &mut self,
         material_array_set: &HashMap<usize, String>,
         progress: &mut ProgressCounter,
-    ) -> HashMap<VoxelMaterialArrayId, Handle<Prefab<MaterialPrefab>>> {
+    ) -> HashMap<VoxelArrayMaterialId, Handle<Prefab<MaterialPrefab>>> {
         let material_arrays_dir =
             application_dir("assets/material_arrays").expect("Failed to get material_arrays dir.");
 
@@ -45,7 +45,7 @@ impl<'a> VoxelLoader<'a> {
             .iter()
             .map(|(array_id, mtl_array_name)| {
                 (
-                    VoxelMaterialArrayId(*array_id),
+                    VoxelArrayMaterialId(*array_id),
                     self.material_loader.load(
                         material_arrays_dir
                             .join(mtl_array_name)

@@ -3,7 +3,7 @@ use crate::{
     assets::BoundedMesh,
     collision::{VoxelBVT, VoxelBVTLeaves},
     voxel::{
-        meshing::VoxelMeshEntities, voxel_aabb, Voxel, VoxelAssets, VoxelMap, VoxelMaterialArrayId,
+        meshing::VoxelMeshEntities, voxel_aabb, Voxel, VoxelArrayMaterialId, VoxelAssets, VoxelMap,
     },
 };
 
@@ -51,7 +51,7 @@ impl<'a> VoxelMeshManager<'a> {
         chunk_key: &lat::Point,
         chunk: &LatticeVoxels<'_, T, Voxel, I>,
         meshes: &ChunkMeshes,
-        material_arrays: &HashMap<VoxelMaterialArrayId, Handle<Prefab<MaterialPrefab>>>,
+        material_arrays: &HashMap<VoxelArrayMaterialId, Handle<Prefab<MaterialPrefab>>>,
     ) where
         T: IsEmpty,
         I: Indexer,

@@ -1,6 +1,6 @@
 use crate::{
     assets::{BoundedMesh, IndexedPosColorNormVertices, MeshLoader, PosColorNormVertices},
-    voxel::{decode_distance, Voxel, VoxelGraphics, VoxelInfo, VoxelMaterialArrayId},
+    voxel::{decode_distance, Voxel, VoxelArrayMaterialId, VoxelGraphics, VoxelInfo},
 };
 
 use amethyst::{
@@ -26,7 +26,7 @@ pub struct VoxelMeshLoader<'a> {
 }
 
 pub struct ChunkMeshes {
-    pub meshes: Vec<(VoxelMaterialArrayId, BoundedMesh)>,
+    pub meshes: Vec<(VoxelArrayMaterialId, BoundedMesh)>,
 }
 
 #[derive(Default)]
@@ -108,7 +108,7 @@ impl<'a> VoxelMeshLoader<'a> {
 
         ChunkMeshes {
             // TODO: don't hardcode the ID
-            meshes: vec![(VoxelMaterialArrayId(1), mesh)],
+            meshes: vec![(VoxelArrayMaterialId(1), mesh)],
         }
     }
 }

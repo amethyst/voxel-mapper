@@ -121,7 +121,7 @@ pub const VOXEL_CHUNK_SIZE: lat::Point = lat::Point {
 #[derive(
     Clone, Copy, Debug, Default, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
 )]
-pub struct VoxelMaterialArrayId(pub usize);
+pub struct VoxelArrayMaterialId(pub usize);
 
 /// Index into the material array that's bound while drawing a voxel mesh. The vertex format will
 /// contain a weighted vector of these indices.
@@ -134,7 +134,7 @@ pub type VoxelMaterialIndexInt = u8;
 pub struct VoxelAssets {
     /// Although these are just `Material`s, each `Texture` can have multiple layers for the purpose
     /// of splatting (blending between layers).
-    pub material_arrays: HashMap<VoxelMaterialArrayId, Handle<Prefab<MaterialPrefab>>>,
+    pub material_arrays: HashMap<VoxelArrayMaterialId, Handle<Prefab<MaterialPrefab>>>,
     /// Generated at runtime, the asset handles are stored here.
     pub meshes: VoxelMeshes,
 }
