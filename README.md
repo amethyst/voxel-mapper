@@ -1,6 +1,6 @@
 <img src="screenshots/splash.png" alt="Amethyst Game Engine" />
 
-![Pic](/screenshots/pic.png)
+![Pic](/screenshots/blending.png)
 
 The Voxel Mapper is a set of Amethyst-compatible systems for creating beautiful
 voxel worlds.
