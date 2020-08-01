@@ -89,11 +89,7 @@ pub struct VoxelGraphics {
     pub distance: f32,
 }
 
-impl SurfaceNetsVoxel<VoxelMaterialIndex> for VoxelGraphics {
-    fn material(&self) -> VoxelMaterialIndex {
-        self.material_index
-    }
-
+impl SurfaceNetsVoxel for VoxelGraphics {
     fn distance(&self) -> f32 {
         self.distance
     }

@@ -15,7 +15,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use thread_profiler::profile_scope;
 
 /// An event to notify the VoxelChunkReloaderSystem that it should reload the meshes all of
-/// `chunk_keys` *atomically* (we don't want to see some chunks updated out of sync with others).
+/// the chunks *atomically* (we don't want to see some chunks updated out of sync with others).
 #[derive(Clone, Default)]
 pub struct VoxelChunkChangeSet {
     pub chunks: HashMap<lat::Point, VecLatticeMap<Voxel>>,
@@ -200,7 +200,7 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
         }
 
         // Feed the pipeline with new change sets.
-        let combine_limit = 256;
+        let combine_limit = 128;
         for change_set in chunk_changes.read(&mut self.reader_id).cloned() {
             reload_queue.push(change_set, combine_limit);
         }

@@ -70,11 +70,13 @@ impl SimpleState for OnlyState {
         make_sunlight([-100.0, 100.0, 100.0], 2.0, world);
         make_sunlight([100.0, 100.0, -100.0], 2.0, world);
         make_sunlight([100.0, 100.0, 100.0], 2.0, world);
-        make_camera(
-            Point3::new(0.0, 10.0, 0.0),
-            Point3::new(0.0, 0.0, 0.0),
-            world,
-        );
+
+        // Make sure the camera position is not too close to the target, or you won't see anything
+        // on start.
+        let cam_position = Point3::new(0.0, 20.0, 0.0);
+        let cam_target = Point3::new(0.0, 10.0, 0.0);
+        make_camera(cam_position, cam_target, world);
+
         make_camera_feet_lines(world);
     }
 

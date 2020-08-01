@@ -41,7 +41,7 @@ Planned features:
 - more realistic texture splatting using depth textures
 - texture detiling
 - more materials
-- dynamic voxel types (e.g. water)
+- dynamic voxel types (e.g. water, foliage)
 - beautiful example maps
 - level of detail
 - procedural generation

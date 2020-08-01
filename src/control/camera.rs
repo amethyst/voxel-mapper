@@ -26,12 +26,14 @@ use amethyst::{
 };
 use std::marker::PhantomData;
 
-pub fn make_camera(position: Point3<f32>, feet: Point3<f32>, world: &mut World) -> Entity {
+pub fn make_camera(position: Point3<f32>, target: Point3<f32>, world: &mut World) -> Entity {
     let (width, height) = world.exec(|screen_dims: ReadExpect<ScreenDimensions>| {
         (screen_dims.width(), screen_dims.height())
     });
 
-    let camera_state = ThirdPersonCameraState::new(position, feet);
+    let camera_state = ThirdPersonCameraState::new(
+        position, target, TPC_CONFIG.target_height_over_feet
+    );
     let input_processor = InputProcessor::new(CAM_INPUT_CONFIG);
     let controller = CameraControllerComponent(Box::new(FinalController::new(TPC_CONFIG)));
 
@@ -46,16 +48,17 @@ pub fn make_camera(position: Point3<f32>, feet: Point3<f32>, world: &mut World) 
         .build()
 }
 
+// TODO: put these in RON files
 const CAM_INPUT_CONFIG: InputConfig = InputConfig {
     rotate_sensitivity_x: 0.005,
     rotate_sensitivity_y: 0.005,
-    zoom_sensitivity: 0.01,
+    zoom_sensitivity: 0.1,
 };
-
 const TPC_CONFIG: ThirdPersonControlConfig = ThirdPersonControlConfig {
     min_radius: 1.0,
     max_radius: 100.0,
     smoothing_weight: 0.8,
+    target_height_over_feet: 10.0,
 };
 
 #[derive(Default)]
@@ -69,6 +72,7 @@ pub struct ThirdPersonControlConfig {
     pub min_radius: f32,
     pub max_radius: f32,
     pub smoothing_weight: f32,
+    pub target_height_over_feet: f32,
 }
 
 pub trait CameraController {
