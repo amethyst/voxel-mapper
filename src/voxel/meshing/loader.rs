@@ -154,7 +154,7 @@ where
     profile_scope!("material_weights");
 
     // The current vertex format is limited to 4 numbers for material weights.
-    let weight_table = vec![
+    const WEIGHT_TABLE: [[f32; 4]; 4] = [
         [1.0, 0.0, 0.0, 0.0],
         [0.0, 1.0, 0.0, 0.0],
         [0.0, 0.0, 1.0, 0.0],
@@ -178,7 +178,7 @@ where
             let q_linear = p_linear + offset;
             let voxel = voxels.get_linear(q_linear);
             if voxel.distance < 0.0 {
-                let material_w = weight_table[voxel.material_index.0 as usize];
+                let material_w = WEIGHT_TABLE[voxel.material_index.0 as usize];
                 w[0] += material_w[0];
                 w[1] += material_w[1];
                 w[2] += material_w[2];
