@@ -1,5 +1,8 @@
 use super::{loader::VoxelMeshLoader, manager::VoxelMeshManager};
-use crate::voxel::{meshing::loader::ChunkMeshes, Voxel, VoxelAssets, VoxelMap};
+use crate::{
+    collision::VoxelBVT,
+    voxel::{meshing::loader::ChunkMeshes, Voxel, VoxelAssets, VoxelMap},
+};
 
 use amethyst::{
     assets::ProgressCounter,
@@ -8,7 +11,7 @@ use amethyst::{
     shrev::{EventChannel, ReaderId},
 };
 use ilattice3 as lat;
-use ilattice3::{LatticeVoxels, VecLatticeMap};
+use ilattice3::{find_surface_voxels, prelude::*, LatticeVoxels, VecLatticeMap};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 #[cfg(feature = "profiler")]
@@ -72,7 +75,6 @@ struct LoadingChunkSet {
 
 struct LoadingChunk {
     key: lat::Point,
-    voxels: VecLatticeMap<Voxel>,
     meshes: ChunkMeshes,
 }
 
@@ -81,9 +83,9 @@ struct LoadingChunk {
 #[derive(Default)]
 pub struct ChunkReloadQueue {
     queue: VecDeque<VoxelChunkChangeSet>,
-    // A chunk set that still has chunks that need new meshes generated. Kept separate from the
-    // `queue` because it's not eligible for combining.
-    meshing_slot: Option<MeshingChunkSet>,
+    // A chunk set that still has chunks that need new meshes and bounding volumes generated. Kept
+    // separate from the `queue` because it's not eligible for combining.
+    generating_slot: Option<MeshingChunkSet>,
     // A chunk set that's only waiting for the meshes to be loaded onto the GPU.
     loading_slot: Option<LoadingChunkSet>,
 }
@@ -101,15 +103,15 @@ impl ChunkReloadQueue {
     }
 
     /// Returns whatever is in the loading slot, filling it from the queue if necessary.
-    fn pop_meshing(&mut self) -> Option<MeshingChunkSet> {
-        self.meshing_slot
+    fn pop_generating(&mut self) -> Option<MeshingChunkSet> {
+        self.generating_slot
             .take()
             .or_else(|| self.queue.pop_front().map(|s| s.start_meshing()))
     }
 
-    fn put_meshing(&mut self, set: MeshingChunkSet) {
-        assert!(self.meshing_slot.is_none());
-        self.meshing_slot.replace(set);
+    fn put_generating(&mut self, set: MeshingChunkSet) {
+        assert!(self.generating_slot.is_none());
+        self.generating_slot.replace(set);
     }
 
     fn has_loading(&self) -> bool {
@@ -155,6 +157,7 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
         ReadExpect<'a, VoxelMap>,
         WriteExpect<'a, VoxelAssets>,
         Write<'a, ChunkReloadQueue>,
+        WriteExpect<'a, VoxelBVT>,
         VoxelMeshLoader<'a>,
         VoxelMeshManager<'a>,
     );
@@ -166,6 +169,7 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
             map,
             mut voxel_assets,
             mut reload_queue,
+            mut voxel_bvt,
             loader,
             mut manager,
         ): Self::SystemData,
@@ -182,14 +186,9 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
         // Create mesh entities once change sets have finished loading.
         if let Some(complete_set) = reload_queue.pop_complete() {
             for complete_chunk in complete_set.chunks.into_iter() {
-                let voxels = LatticeVoxels {
-                    map: complete_chunk.voxels,
-                    palette: &map.voxels.palette,
-                };
                 // Update entities and drop old assets.
                 manager.update_chunk_mesh_entities(
                     &complete_chunk.key,
-                    &voxels,
                     &complete_chunk.meshes,
                     material_arrays,
                 );
@@ -199,53 +198,67 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
             }
         }
 
-        // Feed the pipeline with new change sets.
-        let combine_limit = 128;
-        for change_set in chunk_changes.read(&mut self.reader_id).cloned() {
-            reload_queue.push(change_set, combine_limit);
+        {
+            #[cfg(feature = "profiler")]
+            profile_scope!("reload_enqueue");
+
+            // Feed the pipeline with new change sets.
+            let combine_limit = 1024;
+            for change_set in chunk_changes.read(&mut self.reader_id).cloned() {
+                reload_queue.push(change_set, combine_limit);
+            }
         }
 
         // Keep an upper bound on the latency incurred from the meshing algorithm and updates to the
         // voxel BVH.
-        let max_meshes_per_frame = 32;
-        // Generate meshes.
-        let mut num_chunks_meshed = 0;
-        while num_chunks_meshed < max_meshes_per_frame {
-            let mut meshing_set = match reload_queue.pop_meshing() {
+        let max_chunks_generated_per_frame = 32;
+        let mut num_chunks_generated = 0;
+        while num_chunks_generated < max_chunks_generated_per_frame {
+            let mut gen_set = match reload_queue.pop_generating() {
                 Some(set) => set,
                 None => break,
             };
 
-            while let Some((mesh_chunk_key, chunk_voxels)) = meshing_set.chunks_to_mesh.pop() {
+            while let Some((chunk_key, chunk_voxels)) = gen_set.chunks_to_mesh.pop() {
                 let chunk_voxels = LatticeVoxels {
                     map: chunk_voxels,
                     palette: &map.voxels.palette,
                 };
+
+                // Replace the chunk BVT.
+                {
+                    #[cfg(feature = "profiler")]
+                    profile_scope!("update_bvt_chunk");
+
+                    // This is subtly different from the set of surface points returned from the
+                    // surface nets meshing algorithm, since we use the IsEmpty check instead of the
+                    // signed distance. This allows us to have parts of the mesh that don't collide.
+                    let solid_points: Vec<_> =
+                        find_surface_voxels(&chunk_voxels, chunk_voxels.get_extent());
+                    voxel_bvt.insert_chunk(chunk_key, &solid_points);
+                }
+
+                // Regenerate the mesh.
                 let loading_chunk_meshes =
-                    loader.start_loading_chunk(&chunk_voxels, &mut meshing_set.progress);
-                meshing_set.chunks_loading.push(LoadingChunk {
-                    key: mesh_chunk_key,
+                    loader.start_loading_chunk(&chunk_voxels, &mut gen_set.progress);
+                gen_set.chunks_loading.push(LoadingChunk {
+                    key: chunk_key,
                     meshes: loading_chunk_meshes,
-                    voxels: chunk_voxels.map,
                 });
 
-                num_chunks_meshed += 1;
-                if num_chunks_meshed == max_meshes_per_frame {
+                num_chunks_generated += 1;
+                if num_chunks_generated == max_chunks_generated_per_frame {
                     break;
                 }
             }
 
-            if meshing_set.chunks_to_mesh.is_empty() && !reload_queue.has_loading() {
-                reload_queue.put_loading(meshing_set.finish_meshing());
+            if gen_set.chunks_to_mesh.is_empty() && !reload_queue.has_loading() {
+                reload_queue.put_loading(gen_set.finish_meshing());
             } else {
                 // Need to wait.
-                reload_queue.put_meshing(meshing_set);
+                reload_queue.put_generating(gen_set);
                 break;
             }
-        }
-
-        if !reload_queue.queue.is_empty() {
-            log::debug!("Reload queue len = {}", reload_queue.queue.len());
         }
     }
 }

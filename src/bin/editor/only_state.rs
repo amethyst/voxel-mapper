@@ -3,7 +3,7 @@ use crate::{
 };
 
 use voxel_mapper::{
-    collision::VoxelBVT,
+    collision::voxel_bvt::{insert_all_chunk_bvts, VoxelBVT},
     control::camera::make_camera,
     voxel::{
         loader::VoxelLoader,
@@ -58,9 +58,12 @@ impl SimpleState for OnlyState {
 
             loader.start_loading(map, &mut unused_progress)
         });
-        world.exec(|mut manager: VoxelMeshManager| {
-            manager.make_all_chunk_mesh_entities(&mut assets, &map);
-        });
+        world.exec(
+            |(mut voxel_bvt, mut manager): (WriteExpect<VoxelBVT>, VoxelMeshManager)| {
+                insert_all_chunk_bvts(&mut voxel_bvt, &map.voxels);
+                manager.make_all_chunk_mesh_entities(&mut assets, &map);
+            },
+        );
         world.insert(assets);
         world.insert(map);
 

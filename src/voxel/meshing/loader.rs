@@ -88,6 +88,9 @@ impl<'a> VoxelMeshLoader<'a> {
         );
 
         let mesh = {
+            #[cfg(feature = "profiler")]
+            profile_scope!("load_mesh");
+
             let positions = positions.clone().into_iter().map(|p| Position(p)).collect();
             let colors = vertex_material_weights
                 .into_iter()

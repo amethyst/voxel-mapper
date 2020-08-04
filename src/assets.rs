@@ -15,6 +15,9 @@ use std::io;
 use std::io::{Read, Write};
 use std::path::Path;
 
+#[cfg(feature = "profiler")]
+use thread_profiler::profile_scope;
+
 #[derive(Default)]
 pub struct PosColorNormVertices {
     pub positions: Vec<Position>,
@@ -48,8 +51,14 @@ impl<'a> MeshLoader<'a> {
         // We can't load empty meshes.
         assert!(!ivs.indices.is_empty());
 
-        let sphere = ritter_sphere_bounding_positions(&ivs.vertices.positions);
-        let sphere = BoundingSphere::new(sphere.center, sphere.radius);
+        let sphere = {
+            #[cfg(feature = "profiler")]
+            profile_scope!("ritter_bounding_sphere");
+
+            let sphere = ritter_sphere_bounding_positions(&ivs.vertices.positions);
+
+            BoundingSphere::new(sphere.center, sphere.radius)
+        };
 
         let mesh = self.loader.load_from_data(
             MeshBuilder::new()

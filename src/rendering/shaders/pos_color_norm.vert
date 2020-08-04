@@ -24,7 +24,7 @@ layout(location = 0) out VertexData {
 void main() {
     vec4 vertex_position = model * vec4(position, 1.0);
     vertex.position = vertex_position.xyz;
-    vertex.normal = mat3(model) * normal;
+    vertex.normal = normalize(mat3(model) * normal);
     vertex.color = tint;
     vertex.material_weights = material_weights / dot(material_weights, vec4(1.0));
     gl_Position = proj_view * vertex_position;

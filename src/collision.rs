@@ -1,25 +1,19 @@
+pub mod voxel_bvt;
+
+pub use voxel_bvt::VoxelBVT;
+
 use crate::voxel::{voxel_cuboid, voxel_transform};
 
 use amethyst::core::{
     math::{Isometry3, Point3, Translation3, UnitQuaternion, Vector3},
     num::{Bounded, Zero},
 };
-use ilattice3 as lat;
 use ncollide3d::{
     bounding_volume::{BoundingVolume, HasBoundingVolume, AABB},
-    partitioning::{DBVTLeafId, VisitStatus, Visitor, BVH, DBVT},
+    partitioning::{VisitStatus, Visitor, BVH},
     query::{time_of_impact, visitors::BoundingVolumeInterferencesCollector, Ray, RayCast, TOI},
     shape::Ball,
 };
-use std::collections::HashMap;
-
-pub type VoxelBVT = DBVT<f32, lat::Point, AABB<f32>>;
-
-#[derive(Default)]
-pub struct VoxelBVTLeaves {
-    /// Map from chunk key to all volumes in the chunk.
-    pub leaves: HashMap<lat::Point, Vec<DBVTLeafId>>,
-}
 
 /// Returns the impact between the given ball and any voxel in the BVT, as chosen by `cmp_fn`. The
 /// returned TOI will have volume1 being the ball and volume2 being the voxel, and its toi field

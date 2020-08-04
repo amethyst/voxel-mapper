@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Duncan <bonsairobo@gmail.com>"]
 edition = "2018"
 
+[profile.dev]
+opt-level = 2
+
 [lib]
 name = "voxel_mapper"
 path = "src/lib.rs"
