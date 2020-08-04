@@ -1,7 +1,11 @@
 use super::{loader::VoxelMeshLoader, manager::VoxelMeshManager};
 use crate::{
-    collision::VoxelBVT,
-    voxel::{meshing::loader::ChunkMeshes, Voxel, VoxelAssets, VoxelMap},
+    assets::IndexedPosColorNormVertices,
+    collision::voxel_bvt::{generate_chunk_bvt, ChunkBVT, VoxelBVT},
+    voxel::{
+        meshing::{generate_mesh_vertices, loader::ChunkMesh},
+        Voxel, VoxelAssets, VoxelMap,
+    },
 };
 
 use amethyst::{
@@ -11,7 +15,8 @@ use amethyst::{
     shrev::{EventChannel, ReaderId},
 };
 use ilattice3 as lat;
-use ilattice3::{find_surface_voxels, prelude::*, LatticeVoxels, VecLatticeMap};
+use ilattice3::{prelude::*, LatticeVoxels, VecLatticeMap};
+use rayon::prelude::*;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 #[cfg(feature = "profiler")]
@@ -75,7 +80,7 @@ struct LoadingChunkSet {
 
 struct LoadingChunk {
     key: lat::Point,
-    meshes: ChunkMeshes,
+    mesh: Option<ChunkMesh>,
 }
 
 /// The sequence of chunk change sets to be reloaded. Supports combining change sets up to a maximum
@@ -185,16 +190,14 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
 
         // Create mesh entities once change sets have finished loading.
         if let Some(complete_set) = reload_queue.pop_complete() {
-            for complete_chunk in complete_set.chunks.into_iter() {
+            for LoadingChunk { key, mesh } in complete_set.chunks.into_iter() {
                 // Update entities and drop old assets.
-                manager.update_chunk_mesh_entities(
-                    &complete_chunk.key,
-                    &complete_chunk.meshes,
-                    material_arrays,
-                );
-                let _drop_old_chunk_meshes = meshes
-                    .chunk_meshes
-                    .insert(complete_chunk.key, complete_chunk.meshes);
+                manager.update_chunk_mesh_entities(&key, mesh.clone(), material_arrays);
+                if let Some(new_mesh) = mesh {
+                    let _drop_old_chunk_meshes = meshes.chunk_meshes.insert(key, new_mesh);
+                } else {
+                    meshes.chunk_meshes.remove(&key);
+                }
             }
         }
 
@@ -211,44 +214,59 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
 
         // Keep an upper bound on the latency incurred from the meshing algorithm and updates to the
         // voxel BVH.
-        let max_chunks_generated_per_frame = 32;
-        let mut num_chunks_generated = 0;
-        while num_chunks_generated < max_chunks_generated_per_frame {
+        let mut chunk_budget_remaining = 32;
+        while chunk_budget_remaining > 0 {
             let mut gen_set = match reload_queue.pop_generating() {
                 Some(set) => set,
                 None => break,
             };
 
-            while let Some((chunk_key, chunk_voxels)) = gen_set.chunks_to_mesh.pop() {
-                let chunk_voxels = LatticeVoxels {
-                    map: chunk_voxels,
-                    palette: &map.voxels.palette,
-                };
+            let new_len = gen_set
+                .chunks_to_mesh
+                .len()
+                .saturating_sub(chunk_budget_remaining);
+            let work_chunks: Vec<(lat::Point, VecLatticeMap<Voxel>)> =
+                gen_set.chunks_to_mesh.drain(new_len..).collect();
+            chunk_budget_remaining -= work_chunks.len();
 
-                // Replace the chunk BVT.
+            // Do parallel isosurface generation.
+            let generated_chunks: Vec<(
+                lat::Point,
+                Option<ChunkBVT>,
+                Option<IndexedPosColorNormVertices>,
+            )> = work_chunks
+                .into_par_iter()
+                .map(|(chunk_key, chunk_voxels)| {
+                    let chunk_voxels = LatticeVoxels {
+                        map: chunk_voxels,
+                        palette: &map.voxels.palette,
+                    };
+                    let vertices = generate_mesh_vertices(&chunk_voxels);
+                    let new_bvt = generate_chunk_bvt(&chunk_voxels, chunk_voxels.get_extent());
+
+                    (chunk_key, new_bvt, vertices)
+                })
+                .collect();
+
+            // Collect the generated results.
+            for (chunk_key, bvt, vertices) in generated_chunks.into_iter() {
+                // Load the mesh.
                 {
                     #[cfg(feature = "profiler")]
-                    profile_scope!("update_bvt_chunk");
+                    profile_scope!("load_chunk_mesh");
 
-                    // This is subtly different from the set of surface points returned from the
-                    // surface nets meshing algorithm, since we use the IsEmpty check instead of the
-                    // signed distance. This allows us to have parts of the mesh that don't collide.
-                    let solid_points: Vec<_> =
-                        find_surface_voxels(&chunk_voxels, chunk_voxels.get_extent());
-                    voxel_bvt.insert_chunk(chunk_key, &solid_points);
+                    let loading_chunk = LoadingChunk {
+                        key: chunk_key,
+                        mesh: vertices
+                            .map(|v| loader.start_loading_chunk(v, &mut gen_set.progress)),
+                    };
+                    gen_set.chunks_loading.push(loading_chunk);
                 }
-
-                // Regenerate the mesh.
-                let loading_chunk_meshes =
-                    loader.start_loading_chunk(&chunk_voxels, &mut gen_set.progress);
-                gen_set.chunks_loading.push(LoadingChunk {
-                    key: chunk_key,
-                    meshes: loading_chunk_meshes,
-                });
-
-                num_chunks_generated += 1;
-                if num_chunks_generated == max_chunks_generated_per_frame {
-                    break;
+                // Replace the chunk BVT.
+                if let Some(bvt) = bvt {
+                    voxel_bvt.insert_chunk(chunk_key, bvt);
+                } else {
+                    voxel_bvt.remove_chunk(&chunk_key);
                 }
             }
 

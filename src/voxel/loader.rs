@@ -22,7 +22,9 @@ impl<'a> VoxelLoader<'a> {
     ) -> (VoxelAssets, VoxelMap) {
         let material_arrays =
             self.start_loading_materials(&map.palette_assets.material_arrays, &mut *progress);
-        let meshes = self.mesh_loader.start_loading(&map.voxels, &mut *progress);
+        let meshes = self
+            .mesh_loader
+            .start_loading_all_chunks(&map.voxels, &mut *progress);
 
         (
             VoxelAssets {

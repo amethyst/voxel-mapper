@@ -1,4 +1,4 @@
-use super::loader::ChunkMeshes;
+use super::loader::ChunkMesh;
 use crate::{
     assets::BoundedMesh,
     voxel::{meshing::VoxelMeshEntities, VoxelArrayMaterialId, VoxelAssets, VoxelMap},
@@ -30,20 +30,25 @@ impl<'a> VoxelMeshManager<'a> {
         } = assets;
 
         for chunk_key in map.voxels.map.chunk_keys() {
-            let chunk_meshes = meshes.chunk_meshes.get(chunk_key).unwrap();
-            self.update_chunk_mesh_entities(chunk_key, &chunk_meshes, material_arrays);
+            let chunk_mesh = meshes.chunk_meshes.get(chunk_key).unwrap();
+            self.update_chunk_mesh_entities(chunk_key, Some(chunk_mesh.clone()), material_arrays);
         }
     }
 
     pub fn update_chunk_mesh_entities(
         &mut self,
         chunk_key: &lat::Point,
-        meshes: &ChunkMeshes,
+        mesh: Option<ChunkMesh>,
         material_arrays: &HashMap<VoxelArrayMaterialId, Handle<Prefab<MaterialPrefab>>>,
     ) {
         // Make new entities.
         let mut new_entities = Vec::new();
-        for (material_array_id, mesh) in meshes.meshes.iter().cloned() {
+
+        if let Some(ChunkMesh {
+            material_array_id,
+            mesh,
+        }) = mesh
+        {
             let material_array = material_arrays[&material_array_id].clone();
             let entity = self.make_voxel_mesh_entity(mesh, material_array);
             new_entities.push(entity);

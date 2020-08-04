@@ -1,12 +1,17 @@
 use crate::voxel::{voxel_aabb, Voxel, VoxelInfo};
 
 use ilattice3 as lat;
-use ilattice3::{find_surface_voxels, prelude::*, ChunkedPaletteLatticeMap};
+use ilattice3::{
+    find_surface_voxels, prelude::*, ChunkedPaletteLatticeMap, Extent, Indexer, IsEmpty,
+};
 use ncollide3d::{
     bounding_volume::{BoundingVolume, AABB},
     partitioning::{DBVTLeaf, DBVTNodeId, BVH, DBVT},
 };
 use std::collections::HashMap;
+
+#[cfg(feature = "profiler")]
+use thread_profiler::profile_scope;
 
 /// Acceleration structure for spatial queries with voxels.
 ///
@@ -78,17 +83,7 @@ impl VoxelBVT {
         }
     }
 
-    pub fn insert_chunk(&mut self, chunk_key: lat::Point, chunk_solid_points: &[lat::Point]) {
-        if chunk_solid_points.is_empty() {
-            self.remove_chunk(&chunk_key);
-            return;
-        }
-
-        let mut new_bvt = DBVT::new();
-        for p in chunk_solid_points.iter() {
-            new_bvt.insert(DBVTLeaf::new(voxel_aabb(&p), *p));
-        }
-
+    pub fn insert_chunk(&mut self, chunk_key: lat::Point, new_bvt: ChunkBVT) {
         // Grow the root AABB.
         let new_bvt_root_aabb = new_bvt.root_bounding_volume().unwrap();
         self.root_aabb = self
@@ -133,7 +128,36 @@ impl VoxelBVT {
 
 pub fn insert_all_chunk_bvts(bvt: &mut VoxelBVT, map: &ChunkedPaletteLatticeMap<VoxelInfo, Voxel>) {
     for (key, chunk) in map.iter_chunks_with_boundary() {
-        let solid_points = find_surface_voxels(&chunk, chunk.get_extent());
-        bvt.insert_chunk(*key, &solid_points);
+        if let Some(new_bvt) = generate_chunk_bvt(&chunk, chunk.get_extent()) {
+            bvt.insert_chunk(*key, new_bvt);
+        } else {
+            bvt.remove_chunk(key);
+        }
+    }
+}
+
+pub fn generate_chunk_bvt<V, T, I>(voxels: &V, extent: &Extent) -> Option<ChunkBVT>
+where
+    V: GetLinearRef<Data = T> + HasIndexer<Indexer = I>,
+    T: IsEmpty,
+    I: Indexer,
+{
+    #[cfg(feature = "profiler")]
+    profile_scope!("generate_chunk_bvt");
+
+    // This is subtly different from the set of surface points returned from the surface nets
+    // meshing algorithm, since we use the IsEmpty check instead of the signed distance. This allows
+    // us to have parts of the mesh that don't collide.
+    let solid_points: Vec<_> = find_surface_voxels(voxels, extent);
+
+    if solid_points.is_empty() {
+        None
+    } else {
+        let mut new_bvt = DBVT::new();
+        for p in solid_points.iter() {
+            new_bvt.insert(DBVTLeaf::new(voxel_aabb(&p), *p));
+        }
+
+        Some(new_bvt)
     }
 }
