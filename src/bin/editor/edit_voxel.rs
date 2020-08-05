@@ -18,6 +18,9 @@ use amethyst::{
 use ilattice3 as lat;
 use ilattice3::{prelude::*, ChunkedLatticeMap};
 
+#[cfg(feature = "profiler")]
+use thread_profiler::profile_scope;
+
 #[derive(SystemDesc)]
 #[system_desc(name(EditVoxelSystemDesc))]
 pub struct EditVoxelSystem {
@@ -71,6 +74,9 @@ impl<'a> System<'a> for EditVoxelSystem {
             ray_data,
         ): Self::SystemData,
     ) {
+        #[cfg(feature = "profiler")]
+        profile_scope!("voxel_editor");
+
         // Make sure we at least consume the input events so we don't act on stale ones.
         let input_events: Vec<InputEvent<GameBindings>> =
             input_events.read(&mut self.reader_id).cloned().collect();

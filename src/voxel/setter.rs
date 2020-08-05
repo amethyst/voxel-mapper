@@ -4,7 +4,11 @@ use crate::voxel::{
 
 use amethyst::{core::ecs::prelude::*, derive::SystemDesc, shrev::EventChannel};
 use ilattice3 as lat;
+use ilattice3::FACE_ADJACENT_OFFSETS;
 use std::collections::HashSet;
+
+#[cfg(feature = "profiler")]
+use thread_profiler::profile_scope;
 
 // TODO: delete entire chunks when they become empty
 
@@ -46,50 +50,45 @@ impl<'a> System<'a> for VoxelSetterSystem {
     );
 
     fn run(&mut self, (mut voxel_map, mut chunk_changed_events, set_events): Self::SystemData) {
-        let mut chunks_changed = HashSet::new();
-        for SetVoxelsEvent { voxels } in set_events.read(&mut self.reader_id) {
-            for (
-                p,
-                SetVoxel {
-                    palette_address: new_address,
-                    distance: new_dist,
-                },
-            ) in voxels.into_iter()
-            {
-                // Set the new voxel.
-                let (chunk_key, voxel) = voxel_map.voxels.map.get_mut_or_create(&p, EMPTY_VOXEL);
-                voxel.distance = encode_distance(*new_dist);
-                voxel.palette_address = *new_address;
-                chunks_changed.insert(chunk_key);
+        #[cfg(feature = "profiler")]
+        profile_scope!("voxel_setter");
 
-                // If the point is close to a boundary, then we need to update the adjacent chunks.
-                let chunk_extent = voxel_map.voxels.map.extent_for_chunk_key(&chunk_key);
-                let boundaries = chunk_extent.point_is_on_boundary(&p);
-                for (dir, is_on_boundary) in boundaries.iter() {
-                    if *is_on_boundary {
-                        let adjacent_chunk = chunk_key + lat::Point::from(dir);
-                        chunks_changed.insert(adjacent_chunk);
-                    }
-                }
-                let chunk_extent_within = chunk_extent.radial_grow(-1);
-                let boundaries_within = chunk_extent_within.point_is_on_boundary(&p);
-                for (dir, is_on_boundary) in boundaries_within.iter() {
-                    if *is_on_boundary {
-                        let adjacent_chunk = chunk_key + lat::Point::from(dir);
-                        chunks_changed.insert(adjacent_chunk);
-                    }
+        let mut chunks_changed = HashSet::new();
+        {
+            #[cfg(feature = "profiler")]
+            profile_scope!("process_set_events");
+
+            for SetVoxelsEvent { voxels } in set_events.read(&mut self.reader_id) {
+                for (
+                    p,
+                    SetVoxel {
+                        palette_address: new_address,
+                        distance: new_dist,
+                    },
+                ) in voxels.into_iter()
+                {
+                    // Set the new voxel.
+                    let (chunk_key, voxel) =
+                        voxel_map.voxels.map.get_mut_or_create(&p, EMPTY_VOXEL);
+                    voxel.distance = encode_distance(*new_dist);
+                    voxel.palette_address = *new_address;
+                    chunks_changed.insert(chunk_key);
                 }
             }
         }
-        let chunks = chunks_changed
-            .into_iter()
-            .map(|chunk_key| {
-                (
-                    chunk_key,
-                    voxel_map.voxels.get_chunk_and_boundary(&chunk_key).map,
-                )
-            })
-            .collect();
-        chunk_changed_events.single_write(VoxelChunkChangeSet { chunks });
+
+        let mut adjacent_chunks = Vec::new();
+        for chunk in chunks_changed.iter() {
+            for offset in FACE_ADJACENT_OFFSETS.iter() {
+                adjacent_chunks.push(*chunk + *offset);
+            }
+        }
+        for adj_chunk in adjacent_chunks.into_iter() {
+            chunks_changed.insert(adj_chunk);
+        }
+
+        chunk_changed_events.single_write(VoxelChunkChangeSet {
+            chunks: chunks_changed,
+        });
     }
 }
