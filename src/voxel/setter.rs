@@ -1,11 +1,9 @@
-use crate::voxel::{
-    encode_distance, meshing::chunk_reloader::VoxelChunkChangeSet, VoxelMap, EMPTY_VOXEL,
-};
+use crate::voxel::{double_buffer::VoxelBackBuffer, encode_distance, VoxelMap, EMPTY_VOXEL};
 
 use amethyst::{core::ecs::prelude::*, derive::SystemDesc, shrev::EventChannel};
 use ilattice3 as lat;
-use ilattice3::FACE_ADJACENT_OFFSETS;
-use std::collections::HashSet;
+use ilattice3::{prelude::*, VecLatticeMap, FACE_ADJACENT_OFFSETS};
+use std::collections::HashMap;
 
 #[cfg(feature = "profiler")]
 use thread_profiler::profile_scope;
@@ -44,51 +42,59 @@ impl VoxelSetterSystem {
 impl<'a> System<'a> for VoxelSetterSystem {
     #[allow(clippy::type_complexity)]
     type SystemData = (
-        WriteExpect<'a, VoxelMap>,
-        Write<'a, EventChannel<VoxelChunkChangeSet>>,
+        ReadExpect<'a, VoxelMap>,
+        Write<'a, Option<VoxelBackBuffer>>,
         Read<'a, EventChannel<SetVoxelsEvent>>,
     );
 
-    fn run(&mut self, (mut voxel_map, mut chunk_changed_events, set_events): Self::SystemData) {
+    fn run(&mut self, (map, mut backbuffer, set_events): Self::SystemData) {
         #[cfg(feature = "profiler")]
         profile_scope!("voxel_setter");
 
-        let mut chunks_changed = HashSet::new();
-        {
-            #[cfg(feature = "profiler")]
-            profile_scope!("process_set_events");
+        let mut edited_chunks = HashMap::new();
+        for SetVoxelsEvent { voxels } in set_events.read(&mut self.reader_id) {
+            for (
+                p,
+                SetVoxel {
+                    palette_address: new_address,
+                    distance: new_dist,
+                },
+            ) in voxels.into_iter()
+            {
+                // Get the chunk containing the point. We only write out of place into the
+                // backbuffer.
+                let chunk_key = map.voxels.map.chunk_key(p);
+                let chunk = edited_chunks.entry(chunk_key).or_insert_with(|| {
+                    if let Some(c) = map.voxels.map.get_chunk(&chunk_key) {
+                        c.clone()
+                    } else {
+                        VecLatticeMap::fill(
+                            map.voxels.map.extent_for_chunk_key(&chunk_key),
+                            EMPTY_VOXEL,
+                        )
+                    }
+                });
 
-            for SetVoxelsEvent { voxels } in set_events.read(&mut self.reader_id) {
-                for (
-                    p,
-                    SetVoxel {
-                        palette_address: new_address,
-                        distance: new_dist,
-                    },
-                ) in voxels.into_iter()
-                {
-                    // Set the new voxel.
-                    let (chunk_key, voxel) =
-                        voxel_map.voxels.map.get_mut_or_create(&p, EMPTY_VOXEL);
-                    voxel.distance = encode_distance(*new_dist);
-                    voxel.palette_address = *new_address;
-                    chunks_changed.insert(chunk_key);
-                }
+                // Set the new voxel value.
+                let voxel = chunk.get_world_ref_mut(p);
+                voxel.distance = encode_distance(*new_dist);
+                voxel.palette_address = *new_address;
             }
         }
 
-        let mut adjacent_chunks = Vec::new();
-        for chunk in chunks_changed.iter() {
+        // It's necessary to reload neighboring chunks when voxels change close to the boundaries.
+        // We just always add the neighbors for simplicity.
+        let mut neighbor_chunks = Vec::new();
+        for chunk_key in edited_chunks.keys() {
             for offset in FACE_ADJACENT_OFFSETS.iter() {
-                adjacent_chunks.push(*chunk + *offset);
+                neighbor_chunks.push(*chunk_key + *offset);
             }
         }
-        for adj_chunk in adjacent_chunks.into_iter() {
-            chunks_changed.insert(adj_chunk);
-        }
 
-        chunk_changed_events.single_write(VoxelChunkChangeSet {
-            chunks: chunks_changed,
+        assert!(backbuffer.is_none());
+        *backbuffer = Some(VoxelBackBuffer {
+            edited_chunks,
+            neighbor_chunks,
         });
     }
 }
