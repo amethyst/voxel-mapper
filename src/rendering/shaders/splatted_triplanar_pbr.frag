@@ -94,12 +94,12 @@ layout(std140, set = 1, binding = 0) uniform Material {
     float alpha_cutoff;
 };
 
-layout(set = 1, binding = 1) uniform sampler2DArray albedo;
-layout(set = 1, binding = 2) uniform sampler2DArray emission;
-layout(set = 1, binding = 3) uniform sampler2DArray normal;
-layout(set = 1, binding = 4) uniform sampler2DArray metallic_roughness;
-layout(set = 1, binding = 5) uniform sampler2DArray ambient_occlusion;
-layout(set = 1, binding = 6) uniform sampler2DArray cavity;
+layout(set = 1, binding = 1) uniform sampler2DArray albedo_samp;
+layout(set = 1, binding = 2) uniform sampler2DArray emission_samp;
+layout(set = 1, binding = 3) uniform sampler2DArray normal_samp;
+layout(set = 1, binding = 4) uniform sampler2DArray metallic_roughness_samp;
+layout(set = 1, binding = 5) uniform sampler2DArray ambient_occlusion_samp;
+layout(set = 1, binding = 6) uniform sampler2DArray cavity_samp;
 
 layout(location = 0) in VertexData {
     vec3 position;
@@ -209,15 +209,15 @@ void main() {
     vec2 uv_y = tex_coords(vertex.position.xz / texture_scale, uv_offset);
     vec2 uv_z = tex_coords(vertex.position.xy / texture_scale, uv_offset);
 
-    vec4 albedo_alpha       = triplanar_texture_splatted(albedo, vertex.material_weights, blend, uv_x, uv_y, uv_z);
+    vec4 albedo_alpha       = triplanar_texture_splatted(albedo_samp, vertex.material_weights, blend, uv_x, uv_y, uv_z);
     float alpha             = albedo_alpha.a;
     if(alpha < alpha_cutoff) discard;
 
     vec3 albedo             = albedo_alpha.rgb;
-    vec3 emission           = triplanar_texture_splatted(emission, vertex.material_weights, blend, uv_x, uv_y, uv_z).rgb;
-    vec3 normal             = triplanar_normal_to_world_splatted(normal, vertex.material_weights, blend, uv_x, uv_y, uv_z, vertex.normal);
-    vec2 metallic_roughness = triplanar_texture_splatted(metallic_roughness, vertex.material_weights, blend, uv_x, uv_y, uv_z).bg;
-    float ambient_occlusion = triplanar_texture_splatted(ambient_occlusion, vertex.material_weights, blend, uv_x, uv_y, uv_z).r;
+    vec3 emission           = triplanar_texture_splatted(emission_samp, vertex.material_weights, blend, uv_x, uv_y, uv_z).rgb;
+    vec3 normal             = triplanar_normal_to_world_splatted(normal_samp, vertex.material_weights, blend, uv_x, uv_y, uv_z, vertex.normal);
+    vec2 metallic_roughness = triplanar_texture_splatted(metallic_roughness_samp, vertex.material_weights, blend, uv_x, uv_y, uv_z).bg;
+    float ambient_occlusion = triplanar_texture_splatted(ambient_occlusion_samp, vertex.material_weights, blend, uv_x, uv_y, uv_z).r;
     // TODO: Use cavity
     // float cavity            = texture(cavity, tex_coords(vertex.tex_coord, final_tex_coords).r;
     float metallic          = metallic_roughness.r;
