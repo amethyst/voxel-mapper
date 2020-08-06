@@ -117,7 +117,7 @@ pub const VOXEL_CHUNK_SIZE: lat::Point = lat::Point {
     z: 16,
 };
 
-/// Index into the material array that's bound while drawing a voxel mesh. The vertex format will
+/// Index into the array material that's bound while drawing a voxel mesh. The vertex format will
 /// contain a weighted vector of these indices.
 #[derive(Clone, Copy, Debug, Deserialize, Hash, Eq, PartialEq, Serialize)]
 pub struct VoxelMaterialIndex(pub VoxelMaterialIndexInt);

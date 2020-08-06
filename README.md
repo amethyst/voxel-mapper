@@ -50,7 +50,7 @@ It's early days for this project. These features are currently supported:
 
 Planned features (by priority):
 
-1. multiple material arrays
+1. multiple array materials
 2. memory usage scales to large scenes / draw distance
 3. more realistic texture splatting using depth textures
 4. shadows

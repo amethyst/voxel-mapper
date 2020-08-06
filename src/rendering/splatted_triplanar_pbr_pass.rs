@@ -49,7 +49,7 @@ impl Base3DPassDef for SplattedTriplanarPbrPassDef {
 /// bound array texture. This means at most 4 materials can be blended in one draw call.
 pub type RenderSplattedTriplanarPbr = RenderBase3D<SplattedTriplanarPbrPassDef>;
 
-/// Identifier for one of the arrays of materials. Each mesh can only have one material array bound
+/// Identifier for one of the arrays of materials. Each mesh can only have one array material bound
 /// for the draw call.
 #[derive(
     Clone, Copy, Debug, Default, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
