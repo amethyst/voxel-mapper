@@ -13,9 +13,9 @@ lazy_static::lazy_static! {
         SourceLanguage::GLSL,
         "main",
     ).precompile().unwrap();
-    static ref TRIPLANAR_PBR_FRAGMENT: SpirvShader = SourceShaderInfo::new(
-        include_str!("shaders/triplanar_pbr.frag"),
-        "shaders/triplanar_pbr.frag",
+    static ref SPLATTED_TRIPLANAR_PBR_FRAGMENT: SpirvShader = SourceShaderInfo::new(
+        include_str!("shaders/splatted_triplanar_pbr.frag"),
+        "shaders/splatted_triplanar_pbr.frag",
         ShaderKind::Fragment,
         SourceLanguage::GLSL,
         "main",
@@ -23,19 +23,19 @@ lazy_static::lazy_static! {
 }
 
 #[derive(Debug)]
-pub struct TriplanarPassDef;
+pub struct SplattedTriplanarPbrPassDef;
 
-impl Base3DPassDef for TriplanarPassDef {
+impl Base3DPassDef for SplattedTriplanarPbrPassDef {
     const NAME: &'static str = "TriplanarPbr";
     type TextureSet = FullTextureSet;
     fn vertex_shader() -> &'static SpirvShader {
         &POS_COLOR_NORM_VERTEX
     }
     fn vertex_skinned_shader() -> &'static SpirvShader {
-        unimplemented!("Don't need skinning for voxels")
+        unimplemented!("Don't need skinning for triplanar pass")
     }
     fn fragment_shader() -> &'static SpirvShader {
-        &TRIPLANAR_PBR_FRAGMENT
+        &SPLATTED_TRIPLANAR_PBR_FRAGMENT
     }
     fn base_format() -> Vec<VertexFormat> {
         vec![Position::vertex(), Color::vertex(), Normal::vertex()]
@@ -45,4 +45,4 @@ impl Base3DPassDef for TriplanarPassDef {
     }
 }
 
-pub type RenderTriplanarPbr = RenderBase3D<TriplanarPassDef>;
+pub type RenderSplattedTriplanarPbr = RenderBase3D<SplattedTriplanarPbrPassDef>;

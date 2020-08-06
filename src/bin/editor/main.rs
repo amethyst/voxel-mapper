@@ -12,7 +12,7 @@ use voxel_brush::VoxelBrushSystemDesc;
 
 use voxel_mapper::{
     control::{camera::CameraControlSystemDesc, hover_3d::HoverObjectSystem},
-    rendering::triplanar_pass::RenderTriplanarPbr,
+    rendering::splatted_triplanar_pbr_pass::RenderSplattedTriplanarPbr,
     // TODO: bundle these
     voxel::{
         double_buffer::VoxelDoubleBufferingSystem, editor::VoxelEditorSystemDesc,
@@ -83,7 +83,7 @@ fn run_app(map_file: PathBuf) -> amethyst::Result<()> {
                     RenderToWindow::from_config_path(display_config_path)?
                         .with_clear([0.0, 0.0, 0.0, 1.0]),
                 )
-                .with_plugin(RenderTriplanarPbr::default())
+                .with_plugin(RenderSplattedTriplanarPbr::default())
                 .with_plugin(RenderSkybox::with_colors(
                     Srgb::new(0.82, 0.51, 0.50),
                     Srgb::new(0.18, 0.11, 0.85),
