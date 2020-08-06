@@ -10,10 +10,10 @@ use ilattice3 as lat;
 use ilattice3::ChunkedPaletteLatticeMap;
 use std::collections::HashMap;
 
-/// Generates vertices for voxel meshes and loads them into `BoundedMesh` objects.
+/// Loads the vertices for chunks into `ChunkMesh` objects.
 #[derive(SystemData)]
 pub struct VoxelMeshLoader<'a> {
-    mesh_loader: MeshLoader<'a>,
+    pub mesh_loader: MeshLoader<'a>,
 }
 
 #[derive(Clone)]
@@ -45,8 +45,6 @@ impl<'a> VoxelMeshLoader<'a> {
         VoxelMeshes { chunk_meshes }
     }
 
-    /// Generates vertices for the lattice chunk identified by `chunk_key` and starts loading
-    /// them into `BoundedMesh` objects, which will be ready for use when `progress` is complete.
     pub fn start_loading_chunk(
         &self,
         vertices: IndexedPosColorNormVertices,
@@ -57,7 +55,7 @@ impl<'a> VoxelMeshLoader<'a> {
             .start_loading_pos_color_norm_mesh(vertices, &mut *progress);
 
         ChunkMesh {
-            // TODO: don't hardcode the ID
+            // TODO: support multiple array materials
             material_array_id: VoxelArrayMaterialId(1),
             mesh,
         }
