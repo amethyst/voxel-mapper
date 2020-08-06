@@ -1,4 +1,3 @@
-pub mod chunk_reloader;
 pub mod loader;
 pub mod manager;
 

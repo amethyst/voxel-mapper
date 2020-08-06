@@ -15,8 +15,8 @@ use voxel_mapper::{
     rendering::splatted_triplanar_pbr_pass::RenderSplattedTriplanarPbr,
     // TODO: bundle these
     voxel::{
-        double_buffer::VoxelDoubleBufferingSystem, editor::VoxelEditorSystemDesc,
-        meshing::chunk_reloader::VoxelChunkReloaderSystem,
+        chunk_processor::VoxelChunkProcessorSystem, double_buffer::VoxelDoubleBufferingSystem,
+        editor::VoxelEditorSystemDesc,
     },
 };
 
@@ -70,12 +70,12 @@ fn run_app(map_file: PathBuf) -> amethyst::Result<()> {
         .with(HoverHintSystem, "hover_hint", &["hover_object"])
         .with_system_desc(VoxelBrushSystemDesc, "voxel_brush", &[])
         .with_system_desc(VoxelEditorSystemDesc, "voxel_setter", &[])
-        .with(VoxelChunkReloaderSystem, "chunk_reloader", &[])
+        .with(VoxelChunkProcessorSystem, "chunk_processor", &[])
         .with(
             // Runs after the setter and reloader to swap completed buffers.
             VoxelDoubleBufferingSystem,
             "double_buffer",
-            &["voxel_brush", "voxel_setter", "chunk_reloader"],
+            &["voxel_brush", "voxel_setter", "chunk_processor"],
         )
         .with_bundle(
             RenderingBundle::<DefaultBackend>::new()

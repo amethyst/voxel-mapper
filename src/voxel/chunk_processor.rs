@@ -1,8 +1,11 @@
-use super::{loader::VoxelMeshLoader, manager::VoxelMeshManager};
 use crate::{
     assets::IndexedPosColorNormVertices,
     collision::voxel_bvt::{generate_chunk_bvt, ChunkBVT, VoxelBVT},
-    voxel::{double_buffer::DirtyChunks, meshing::generate_mesh_vertices, VoxelAssets, VoxelMap},
+    voxel::{
+        double_buffer::DirtyChunks,
+        meshing::{generate_mesh_vertices, loader::VoxelMeshLoader, manager::VoxelMeshManager},
+        VoxelAssets, VoxelMap,
+    },
 };
 
 use amethyst::{assets::ProgressCounter, core::ecs::prelude::*};
@@ -13,9 +16,9 @@ use rayon::prelude::*;
 #[cfg(feature = "profiler")]
 use thread_profiler::profile_scope;
 
-pub struct VoxelChunkReloaderSystem;
+pub struct VoxelChunkProcessorSystem;
 
-impl<'a> System<'a> for VoxelChunkReloaderSystem {
+impl<'a> System<'a> for VoxelChunkProcessorSystem {
     #[allow(clippy::type_complexity)]
     type SystemData = (
         ReadExpect<'a, VoxelMap>,
@@ -33,7 +36,7 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
         ): Self::SystemData,
     ) {
         #[cfg(feature = "profiler")]
-        profile_scope!("voxel_chunk_reloader");
+        profile_scope!("voxel_chunk_processor");
 
         // Do parallel isosurface generation.
         let chunks_to_generate = match dirty_chunks.take() {

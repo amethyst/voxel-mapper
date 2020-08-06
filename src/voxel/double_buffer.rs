@@ -31,7 +31,7 @@ pub struct DirtyChunks {
 }
 
 /// The system responsible for merging the `EditedChunksBackBuffer` into the `VoxelMap`. This allows the
-/// `VoxelChunkReloaderSystem` and `VoxelEditorSystem` to run in parallel.
+/// `VoxelChunkProcessorSystem` and `VoxelEditorSystem` to run in parallel.
 pub struct VoxelDoubleBufferingSystem;
 
 impl<'a> System<'a> for VoxelDoubleBufferingSystem {

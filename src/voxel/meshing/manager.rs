@@ -20,7 +20,7 @@ pub struct VoxelMeshManager<'a> {
 }
 
 impl<'a> VoxelMeshManager<'a> {
-    /// Similar to VoxelChunkReloaderSystem::run, but it runs on every chunk loaded in the map, and
+    /// Similar to VoxelChunkProcessorSystem::run, but it runs on every chunk loaded in the map, and
     /// expects that mesh assets are finished loading.
     pub fn make_all_chunk_mesh_entities(&mut self, assets: &mut VoxelAssets, map: &VoxelMap) {
         let VoxelAssets {
