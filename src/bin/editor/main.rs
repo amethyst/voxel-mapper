@@ -64,8 +64,14 @@ fn run_app(map_file: PathBuf) -> amethyst::Result<()> {
             &[],
         )
         .with(HoverHintSystem, "hover_hint", &[])
-        .with_system_desc(VoxelBrushSystemDesc, "voxel_brush", &[])
         .with_bundle(VoxelSystemBundle)?
+        .with_system_desc(
+            VoxelBrushSystemDesc,
+            "voxel_brush",
+            // The brush needs to see the result of it's updates on the very next frame, or else
+            // there will be weird feedback loops that cause voxel flickering.
+            &["voxel_double_buffering"],
+        )
         .with_bundle(
             RenderingBundle::<DefaultBackend>::new()
                 .with_plugin(
