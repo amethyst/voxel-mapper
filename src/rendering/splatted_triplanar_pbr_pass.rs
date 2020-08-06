@@ -32,7 +32,7 @@ impl Base3DPassDef for SplattedTriplanarPbrPassDef {
         &POS_COLOR_NORM_VERTEX
     }
     fn vertex_skinned_shader() -> &'static SpirvShader {
-        unimplemented!("Don't need skinning for triplanar pass")
+        unimplemented!("Don't need skinning for this pass")
     }
     fn fragment_shader() -> &'static SpirvShader {
         &SPLATTED_TRIPLANAR_PBR_FRAGMENT
@@ -45,4 +45,8 @@ impl Base3DPassDef for SplattedTriplanarPbrPassDef {
     }
 }
 
+/// A render pass that does triplanar texturing and splatting of PBR materials. Requires a vertex
+/// format of (vec3 position, vec4 color, vec3 normal). The "color" attribute is really a vector of
+/// 4 material weights, summing to one, determining how to blend the 4 materials present in the
+/// bound array texture. This means at most 4 materials can be blended in one draw call.
 pub type RenderSplattedTriplanarPbr = RenderBase3D<SplattedTriplanarPbrPassDef>;
