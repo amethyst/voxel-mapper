@@ -9,12 +9,12 @@ use amethyst::{
 use std::collections::HashMap;
 
 #[derive(SystemData)]
-pub struct VoxelLoader<'a> {
+pub struct VoxelAssetLoader<'a> {
     material_loader: PrefabLoader<'a, MaterialPrefab>,
     mesh_loader: VoxelMeshLoader<'a>,
 }
 
-impl<'a> VoxelLoader<'a> {
+impl<'a> VoxelAssetLoader<'a> {
     pub fn start_loading(
         &mut self,
         map: VoxelMap,

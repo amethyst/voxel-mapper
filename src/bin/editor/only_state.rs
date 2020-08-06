@@ -6,7 +6,7 @@ use voxel_mapper::{
     collision::voxel_bvt::{insert_all_chunk_bvts, VoxelBVT},
     control::camera::make_camera,
     voxel::{
-        loader::VoxelLoader,
+        asset_loader::VoxelAssetLoader,
         map_file::{load_voxel_map, save_voxel_map},
         meshing::manager::VoxelMeshManager,
         VoxelMap,
@@ -53,7 +53,7 @@ impl SimpleState for OnlyState {
 
         let map = load_voxel_map(&self.map_file).expect("Failed to load voxel map");
 
-        let (mut assets, map) = world.exec(|mut loader: VoxelLoader| {
+        let (mut assets, map) = world.exec(|mut loader: VoxelAssetLoader| {
             let mut unused_progress = ProgressCounter::new();
 
             loader.start_loading(map, &mut unused_progress)

@@ -1,5 +1,5 @@
+pub mod asset_loader;
 pub mod double_buffer;
-pub mod loader;
 pub mod map_file;
 pub mod meshing;
 pub mod setter;
