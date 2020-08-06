@@ -23,15 +23,15 @@ use ilattice3::{prelude::*, ChunkedLatticeMap};
 use thread_profiler::profile_scope;
 
 #[derive(SystemDesc)]
-#[system_desc(name(EditVoxelSystemDesc))]
-pub struct EditVoxelSystem {
+#[system_desc(name(VoxelBrushSystemDesc))]
+pub struct VoxelBrushSystem {
     #[system_desc(event_channel_reader)]
     reader_id: ReaderId<InputEvent<GameBindings>>,
 }
 
-impl EditVoxelSystem {
+impl VoxelBrushSystem {
     pub fn new(reader_id: ReaderId<InputEvent<GameBindings>>) -> Self {
-        EditVoxelSystem { reader_id }
+        VoxelBrushSystem { reader_id }
     }
 }
 
@@ -51,7 +51,7 @@ pub enum SetVoxelOperation {
     RemoveSolid,
 }
 
-impl<'a> System<'a> for EditVoxelSystem {
+impl<'a> System<'a> for VoxelBrushSystem {
     #[allow(clippy::type_complexity)]
     type SystemData = (
         Read<'a, EventChannel<InputEvent<GameBindings>>>,
@@ -76,7 +76,7 @@ impl<'a> System<'a> for EditVoxelSystem {
         ): Self::SystemData,
     ) {
         #[cfg(feature = "profiler")]
-        profile_scope!("voxel_editor");
+        profile_scope!("voxel_brush");
 
         // Make sure we at least consume the input events so we don't act on stale ones.
         let input_events: Vec<InputEvent<GameBindings>> =

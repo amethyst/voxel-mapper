@@ -1,14 +1,14 @@
 mod bindings;
 mod debug_feet;
-mod edit_voxel;
 mod hover_hint;
 mod only_state;
+mod voxel_brush;
 
 use bindings::GameBindings;
 use debug_feet::DrawCameraFeetSystem;
-use edit_voxel::EditVoxelSystemDesc;
 use hover_hint::HoverHintSystem;
 use only_state::OnlyState;
+use voxel_brush::VoxelBrushSystemDesc;
 
 use voxel_mapper::{
     control::{camera::CameraControlSystemDesc, hover_3d::HoverObjectSystem},
@@ -68,14 +68,14 @@ fn run_app(map_file: PathBuf) -> amethyst::Result<()> {
             &[],
         )
         .with(HoverHintSystem, "hover_hint", &["hover_object"])
-        .with_system_desc(EditVoxelSystemDesc, "edit_voxel", &[])
+        .with_system_desc(VoxelBrushSystemDesc, "voxel_brush", &[])
         .with_system_desc(VoxelSetterSystemDesc, "voxel_setter", &[])
         .with(VoxelChunkReloaderSystem, "chunk_reloader", &[])
         .with(
             // Runs after the setter and reloader to swap completed buffers.
             VoxelDoubleBufferingSystem,
             "double_buffer",
-            &["edit_voxel", "voxel_setter", "chunk_reloader"],
+            &["voxel_brush", "voxel_setter", "chunk_reloader"],
         )
         .with_bundle(
             RenderingBundle::<DefaultBackend>::new()

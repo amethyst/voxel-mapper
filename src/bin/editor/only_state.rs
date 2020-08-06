@@ -1,5 +1,5 @@
 use crate::{
-    debug_feet::make_camera_feet_lines, edit_voxel::PaintBrush, hover_hint::make_hover_hint_lines,
+    debug_feet::make_camera_feet_lines, hover_hint::make_hover_hint_lines, voxel_brush::PaintBrush,
 };
 
 use voxel_mapper::{
