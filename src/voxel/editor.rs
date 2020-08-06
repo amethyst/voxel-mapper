@@ -10,13 +10,13 @@ use thread_profiler::profile_scope;
 
 // TODO: delete entire chunks when they become empty
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EditVoxelsRequest {
     pub voxels: Vec<(lat::Point, SetVoxel)>,
 }
 
 /// The data actually stored in each point of the voxel map.
-#[derive(Clone, Copy, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct SetVoxel {
     /// Points to some palette element.
     pub palette_address: u8,

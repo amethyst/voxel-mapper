@@ -4,7 +4,6 @@ use voxel_mapper::{
     control::{camera::data::CameraData, hover_3d::ObjectsUnderCursor},
     voxel::{
         decode_distance,
-        double_buffer::EditVoxelsRequestBackBuffer,
         editor::{EditVoxelsRequest, SetVoxel},
         voxel_containing_point, Voxel, VoxelMap, EMPTY_VOXEL,
     },
@@ -59,7 +58,7 @@ impl<'a> System<'a> for VoxelBrushSystem {
         Read<'a, ObjectsUnderCursor>,
         ReadExpect<'a, VoxelMap>,
         WriteExpect<'a, PaintBrush>,
-        Write<'a, EditVoxelsRequestBackBuffer>,
+        Write<'a, EventChannel<EditVoxelsRequest>>,
         CameraData<'a>,
     );
 
@@ -166,7 +165,7 @@ fn send_request_for_sphere(
     radius: u32,
     palette_address: u8,
     voxels: &ChunkedLatticeMap<Voxel>,
-    edit_voxel_requests: &mut EditVoxelsRequestBackBuffer,
+    edit_voxel_requests: &mut EventChannel<EditVoxelsRequest>,
 ) {
     let set_voxels = lat::Extent::from_center_and_radius(center, radius as i32 + 2)
         .into_iter()
@@ -185,7 +184,7 @@ fn send_request_for_sphere(
             }
         })
         .collect();
-    edit_voxel_requests.push_request(EditVoxelsRequest { voxels: set_voxels });
+    edit_voxel_requests.single_write(EditVoxelsRequest { voxels: set_voxels });
 }
 
 fn determine_new_voxel(

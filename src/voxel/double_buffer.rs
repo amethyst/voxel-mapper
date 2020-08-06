@@ -53,14 +53,14 @@ impl<'a> System<'a> for VoxelDoubleBufferingSystem {
     fn run(
         &mut self,
         (
-            mut set_requests, mut set_voxels_channel, mut edits, mut dirty_chunks, mut map
+            mut edit_requests, mut set_voxels_channel, mut edits, mut dirty_chunks, mut map
         ): Self::SystemData,
     ) {
         #[cfg(feature = "profiler")]
         profile_scope!("voxel_double_buffering");
 
         // Submit the requests to the setter.
-        set_voxels_channel.drain_vec_write(&mut set_requests.requests);
+        set_voxels_channel.drain_vec_write(&mut edit_requests.requests);
 
         // Merge the edits into the map.
         let EditedChunksBackBuffer {
