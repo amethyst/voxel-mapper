@@ -1,6 +1,6 @@
 use crate::control::hover_3d::ObjectsUnderCursor;
 
-use voxel_mapper::voxel::{voxel_containing_point, MyPoint3};
+use voxel_mapper::voxel::{voxel_containing_point, LatPoint3};
 
 use amethyst::{
     core::ecs::prelude::*,
@@ -42,8 +42,8 @@ impl<'a> System<'a> for HoverHintSystem {
             } else {
                 continue;
             };
-            let MyPoint3(box_min) = box_p.into();
-            let MyPoint3(box_max) = (box_p + lat::Point::new(1, 1, 1)).into();
+            let LatPoint3(box_min) = box_p.into();
+            let LatPoint3(box_max) = (box_p + lat::Point::new(1, 1, 1)).into();
             lines.add_box(box_min, box_max, Srgba::new(1.0, 0.0, 1.0, 1.0));
         }
     }

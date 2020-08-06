@@ -141,18 +141,18 @@ pub fn voxel_containing_point(p: &Point3<f32>) -> lat::Point {
     floor_float_vector_to_lattice_point(&p.coords)
 }
 
-pub struct MyPoint3(pub Point3<f32>);
+pub struct LatPoint3(pub Point3<f32>);
 
-impl From<lat::Point> for MyPoint3 {
-    fn from(other: lat::Point) -> MyPoint3 {
-        MyPoint3(<[f32; 3]>::from(other).into())
+impl From<lat::Point> for LatPoint3 {
+    fn from(other: lat::Point) -> LatPoint3 {
+        LatPoint3(<[f32; 3]>::from(other).into())
     }
 }
 
 /// Returns the AABB with corners (min, max + [1, 1, 1]).
 pub fn extent_aabb(e: &lat::Extent) -> AABB<f32> {
-    let MyPoint3(mins) = e.get_minimum().into();
-    let MyPoint3(maxs) = (*e.get_world_supremum()).into();
+    let LatPoint3(mins) = e.get_minimum().into();
+    let LatPoint3(maxs) = (*e.get_world_supremum()).into();
 
     AABB::new(mins, maxs)
 }
@@ -170,13 +170,13 @@ pub fn voxel_center_offset() -> Vector3<f32> {
 }
 
 pub fn voxel_center(p: &lat::Point) -> Point3<f32> {
-    let MyPoint3(fpoint) = (*p).into();
+    let LatPoint3(fpoint) = (*p).into();
 
     fpoint + voxel_center_offset()
 }
 
 fn half_extent(e: &lat::Extent) -> Vector3<f32> {
-    let MyPoint3(sup) = (*e.get_local_supremum()).into();
+    let LatPoint3(sup) = (*e.get_local_supremum()).into();
 
     sup.coords / 2.0
 }
@@ -186,7 +186,7 @@ pub fn extent_cuboid(e: &lat::Extent) -> Cuboid<f32> {
 }
 
 pub fn extent_cuboid_transform(e: &lat::Extent) -> Isometry3<f32> {
-    let MyPoint3(min) = e.get_minimum().into();
+    let LatPoint3(min) = e.get_minimum().into();
     let center = min.coords + half_extent(e);
 
     Isometry3::new(center, zero())
