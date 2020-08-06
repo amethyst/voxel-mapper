@@ -1,7 +1,7 @@
 use super::loader::ChunkMesh;
 use crate::{
     assets::BoundedMesh,
-    voxel::{meshing::VoxelMeshEntities, VoxelArrayMaterialId, VoxelAssets, VoxelMap},
+    voxel::{meshing::VoxelMeshEntities, ArrayMaterialId, VoxelAssets, VoxelMap},
 };
 
 use amethyst::{
@@ -24,14 +24,14 @@ impl<'a> VoxelMeshManager<'a> {
     /// expects that mesh assets are finished loading.
     pub fn make_all_chunk_mesh_entities(&mut self, assets: &mut VoxelAssets, map: &VoxelMap) {
         let VoxelAssets {
-            material_arrays,
+            array_materials,
             meshes,
             ..
         } = assets;
 
         for chunk_key in map.voxels.map.chunk_keys() {
             let chunk_mesh = meshes.chunk_meshes.get(chunk_key).unwrap();
-            self.update_chunk_mesh_entities(chunk_key, Some(chunk_mesh.clone()), material_arrays);
+            self.update_chunk_mesh_entities(chunk_key, Some(chunk_mesh.clone()), array_materials);
         }
     }
 
@@ -39,7 +39,7 @@ impl<'a> VoxelMeshManager<'a> {
         &mut self,
         chunk_key: &lat::Point,
         mesh: Option<ChunkMesh>,
-        material_arrays: &HashMap<VoxelArrayMaterialId, Handle<Prefab<MaterialPrefab>>>,
+        array_materials: &HashMap<ArrayMaterialId, Handle<Prefab<MaterialPrefab>>>,
     ) {
         // Make new entities.
         let mut new_entities = Vec::new();
@@ -49,7 +49,7 @@ impl<'a> VoxelMeshManager<'a> {
             mesh,
         }) = mesh
         {
-            let material_array = material_arrays[&material_array_id].clone();
+            let material_array = array_materials[&material_array_id].clone();
             let entity = self.make_voxel_mesh_entity(mesh, material_array);
             new_entities.push(entity);
         }

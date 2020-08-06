@@ -3,7 +3,7 @@ Prefab(
     entities: [
         PrefabEntity(
             data: (
-                albedo: File("material_arrays/grass_rock_snow_dirt/albedo.png", ("IMAGE", (
+                albedo: File("array_materials/grass_rock_snow_dirt/albedo.png", ("IMAGE", (
                     kind: D2Array(layers: 4),
                     generate_mips: true,
                     sampler_info: (
@@ -22,7 +22,7 @@ Prefab(
                         anisotropic: Off,
                     ),
                 ))),
-                ambient_occlusion: File("material_arrays/grass_rock_snow_dirt/ao.png", ("IMAGE", (
+                ambient_occlusion: File("array_materials/grass_rock_snow_dirt/ao.png", ("IMAGE", (
                     kind: D2Array(layers: 4),
                     generate_mips: true,
                     sampler_info: (
@@ -41,7 +41,7 @@ Prefab(
                         anisotropic: Off,
                     ),
                 ))),
-                metallic_roughness: File("material_arrays/grass_rock_snow_dirt/metal_rough.png", ("IMAGE", (
+                metallic_roughness: File("array_materials/grass_rock_snow_dirt/metal_rough.png", ("IMAGE", (
                     kind: D2Array(layers: 4),
                     generate_mips: true,
                     sampler_info: (
@@ -60,7 +60,7 @@ Prefab(
                         anisotropic: Off,
                     ),
                 ))),
-                normal: File("material_arrays/grass_rock_snow_dirt/normal.png", ("IMAGE", (
+                normal: File("array_materials/grass_rock_snow_dirt/normal.png", ("IMAGE", (
                     kind: D2Array(layers: 4),
                     repr: Unorm,
                     generate_mips: true,

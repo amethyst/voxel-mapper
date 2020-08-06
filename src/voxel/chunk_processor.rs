@@ -45,7 +45,7 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
         };
 
         let VoxelAssets {
-            material_arrays,
+            array_materials,
             meshes,
             ..
         } = &mut *voxel_assets;
@@ -86,7 +86,7 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
             }
 
             // Update entities and drop old assets.
-            manager.update_chunk_mesh_entities(&chunk_key, mesh.clone(), material_arrays);
+            manager.update_chunk_mesh_entities(&chunk_key, mesh.clone(), array_materials);
             if let Some(new_mesh) = mesh {
                 let _drop_old_chunk_meshes = meshes.chunk_meshes.insert(chunk_key, new_mesh);
             } else {

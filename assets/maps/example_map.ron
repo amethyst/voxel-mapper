@@ -1,7 +1,7 @@
 (
     palette_spec: (
         assets: (
-            material_arrays: {
+            array_materials: {
                 1: "grass_rock_snow_dirt",
             },
         ),

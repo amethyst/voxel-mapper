@@ -1,4 +1,4 @@
-use super::{meshing::loader::VoxelMeshLoader, VoxelArrayMaterialId, VoxelAssets, VoxelMap};
+use super::{meshing::loader::VoxelMeshLoader, ArrayMaterialId, VoxelAssets, VoxelMap};
 
 use amethyst::{
     assets::{Handle, Prefab, PrefabLoader, ProgressCounter, RonFormat},
@@ -16,14 +16,14 @@ pub struct VoxelAssetLoader<'a> {
 
 impl<'a> VoxelAssetLoader<'a> {
     pub fn start_loading(&mut self, map: &VoxelMap, progress: &mut ProgressCounter) -> VoxelAssets {
-        let material_arrays =
-            self.start_loading_materials(&map.palette_assets.material_arrays, &mut *progress);
+        let array_materials =
+            self.start_loading_materials(&map.palette_assets.array_materials, &mut *progress);
         let meshes = self
             .mesh_loader
             .start_loading_all_chunks(&map.voxels, &mut *progress);
 
         VoxelAssets {
-            material_arrays,
+            array_materials,
             meshes,
         }
     }
@@ -32,17 +32,17 @@ impl<'a> VoxelAssetLoader<'a> {
         &mut self,
         material_array_set: &HashMap<usize, String>,
         progress: &mut ProgressCounter,
-    ) -> HashMap<VoxelArrayMaterialId, Handle<Prefab<MaterialPrefab>>> {
-        let material_arrays_dir =
-            application_dir("assets/material_arrays").expect("Failed to get material_arrays dir.");
+    ) -> HashMap<ArrayMaterialId, Handle<Prefab<MaterialPrefab>>> {
+        let array_materials_dir =
+            application_dir("assets/array_materials").expect("Failed to get array_materials dir.");
 
         material_array_set
             .iter()
             .map(|(array_id, mtl_array_name)| {
                 (
-                    VoxelArrayMaterialId(*array_id),
+                    ArrayMaterialId(*array_id),
                     self.material_loader.load(
-                        material_arrays_dir
+                        array_materials_dir
                             .join(mtl_array_name)
                             .join("prefab.ron")
                             .to_str()

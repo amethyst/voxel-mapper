@@ -2,7 +2,7 @@ use super::generate_mesh_vertices;
 
 use crate::{
     assets::{BoundedMesh, IndexedPosColorNormVertices, MeshLoader},
-    voxel::{Voxel, VoxelArrayMaterialId, VoxelInfo},
+    voxel::{ArrayMaterialId, Voxel, VoxelInfo},
 };
 
 use amethyst::{assets::ProgressCounter, core::ecs::prelude::*};
@@ -18,7 +18,7 @@ pub struct VoxelMeshLoader<'a> {
 
 #[derive(Clone)]
 pub struct ChunkMesh {
-    pub material_array_id: VoxelArrayMaterialId,
+    pub material_array_id: ArrayMaterialId,
     pub mesh: BoundedMesh,
 }
 
@@ -56,7 +56,7 @@ impl<'a> VoxelMeshLoader<'a> {
 
         ChunkMesh {
             // TODO: support multiple array materials
-            material_array_id: VoxelArrayMaterialId(1),
+            material_array_id: ArrayMaterialId(1),
             mesh,
         }
     }

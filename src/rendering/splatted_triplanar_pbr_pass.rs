@@ -5,6 +5,7 @@ use rendy::{
     shader::SpirvShader,
     util::types::vertex::{Color, Normal, Position},
 };
+use serde::{Deserialize, Serialize};
 
 lazy_static::lazy_static! {
     static ref POS_COLOR_NORM_VERTEX: SpirvShader = SpirvShader::from_bytes(
@@ -47,3 +48,10 @@ impl Base3DPassDef for SplattedTriplanarPbrPassDef {
 /// 4 material weights, summing to one, determining how to blend the 4 materials present in the
 /// bound array texture. This means at most 4 materials can be blended in one draw call.
 pub type RenderSplattedTriplanarPbr = RenderBase3D<SplattedTriplanarPbrPassDef>;
+
+/// Identifier for one of the arrays of materials. Each mesh can only have one material array bound
+/// for the draw call.
+#[derive(
+    Clone, Copy, Debug, Default, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
+)]
+pub struct ArrayMaterialId(pub usize);

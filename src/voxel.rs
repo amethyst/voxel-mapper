@@ -1,3 +1,5 @@
+use crate::rendering::splatted_triplanar_pbr_pass::ArrayMaterialId;
+
 pub mod asset_loader;
 pub mod bundle;
 pub mod chunk_processor;
@@ -105,8 +107,8 @@ pub struct VoxelMap {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct VoxelPaletteAssets {
-    /// Material array prefab file identifiers.
-    pub material_arrays: HashMap<usize, String>,
+    /// Array material prefab file identifiers.
+    pub array_materials: HashMap<usize, String>,
 }
 
 pub const VOXEL_CHUNK_SIZE: lat::Point = lat::Point {
@@ -114,13 +116,6 @@ pub const VOXEL_CHUNK_SIZE: lat::Point = lat::Point {
     y: 16,
     z: 16,
 };
-
-/// Identifier for one of the arrays of materials. Each mesh can only have one material array bound
-/// for the draw call.
-#[derive(
-    Clone, Copy, Debug, Default, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
-)]
-pub struct VoxelArrayMaterialId(pub usize);
 
 /// Index into the material array that's bound while drawing a voxel mesh. The vertex format will
 /// contain a weighted vector of these indices.
@@ -133,7 +128,7 @@ pub type VoxelMaterialIndexInt = u8;
 pub struct VoxelAssets {
     /// Although these are just `Material`s, each `Texture` can have multiple layers for the purpose
     /// of splatting (blending between layers).
-    pub material_arrays: HashMap<VoxelArrayMaterialId, Handle<Prefab<MaterialPrefab>>>,
+    pub array_materials: HashMap<ArrayMaterialId, Handle<Prefab<MaterialPrefab>>>,
     /// Generated at runtime, the asset handles are stored here.
     pub meshes: VoxelMeshes,
 }
