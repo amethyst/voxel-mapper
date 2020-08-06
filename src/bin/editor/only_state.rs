@@ -1,10 +1,10 @@
 use crate::{
-    debug_feet::make_camera_feet_lines, hover_hint::make_hover_hint_lines, voxel_brush::PaintBrush,
+    control::camera::make_camera, debug_feet::make_camera_feet_lines,
+    hover_hint::make_hover_hint_lines, voxel_brush::PaintBrush,
 };
 
 use voxel_mapper::{
     collision::voxel_bvt::{insert_all_chunk_bvts, VoxelBVT},
-    control::camera::make_camera,
     voxel::{
         asset_loader::VoxelAssetLoader,
         map_file::{load_voxel_map, save_voxel_map},
@@ -44,7 +44,6 @@ impl SimpleState for OnlyState {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         let StateData { world, .. } = data;
 
-        world.insert(VoxelBVT::new());
         world.insert(PaintBrush {
             radius: 8,
             voxel_address: 1,

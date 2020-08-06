@@ -1,17 +1,18 @@
 mod bindings;
+mod control;
 mod debug_feet;
 mod hover_hint;
 mod only_state;
 mod voxel_brush;
 
 use bindings::GameBindings;
+use control::{camera::CameraControlSystemDesc, hover_3d::HoverObjectSystem};
 use debug_feet::DrawCameraFeetSystem;
 use hover_hint::HoverHintSystem;
 use only_state::OnlyState;
 use voxel_brush::VoxelBrushSystemDesc;
 
 use voxel_mapper::{
-    control::{camera::CameraControlSystemDesc, hover_3d::HoverObjectSystem},
     rendering::splatted_triplanar_pbr_pass::RenderSplattedTriplanarPbr,
     voxel::bundle::VoxelSystemBundle,
 };

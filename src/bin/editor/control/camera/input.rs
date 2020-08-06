@@ -1,5 +1,6 @@
-use super::floor_translation::floor_drag_translation;
-use crate::geometry::Plane;
+use voxel_mapper::geometry::{
+    line_plane_intersection, screen_ray, Line, LinePlaneIntersection, Plane,
+};
 
 use amethyst::{
     core::{
@@ -114,4 +115,34 @@ impl InputProcessor {
             feet_translation,
         }
     }
+}
+
+fn floor_drag_translation(
+    floor_plane: &Plane,
+    camera_tfm: &Transform,
+    camera_proj: &Projection,
+    dims: &ScreenDimensions,
+    cursor_pos: Point2<f32>,
+    prev_cursor_pos: Point2<f32>,
+) -> Vector3<f32> {
+    let prev_screen_ray = screen_ray(camera_tfm, camera_proj, dims, prev_cursor_pos);
+    let screen_ray = screen_ray(camera_tfm, camera_proj, dims, cursor_pos);
+
+    _floor_drag_translation(floor_plane, &prev_screen_ray, &screen_ray)
+}
+
+fn _floor_drag_translation(
+    floor_plane: &Plane,
+    prev_screen_ray: &Line,
+    screen_ray: &Line,
+) -> Vector3<f32> {
+    let p_now = line_plane_intersection(screen_ray, floor_plane);
+    if let LinePlaneIntersection::IntersectionPoint(p_now) = p_now {
+        let p_prev = line_plane_intersection(prev_screen_ray, floor_plane);
+        if let LinePlaneIntersection::IntersectionPoint(p_prev) = p_prev {
+            return p_prev - p_now;
+        }
+    }
+
+    Vector3::zeros()
 }

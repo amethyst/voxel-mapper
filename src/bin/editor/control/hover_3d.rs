@@ -1,6 +1,7 @@
-use crate::{
+use crate::control::camera::data::CameraData;
+
+use voxel_mapper::{
     collision::{nearest_bounding_volume_ray_cast, NearestBVRayCastResult, VoxelBVT},
-    control::camera::data::CameraData,
     geometry::{line_plane_intersection, Line, LinePlaneIntersection, Plane},
     voxel::closest_face,
 };

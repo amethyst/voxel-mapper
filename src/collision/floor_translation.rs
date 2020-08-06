@@ -1,50 +1,13 @@
 use crate::{
-    geometry::{line_plane_intersection, screen_ray, Line, LinePlaneIntersection, Plane, UP},
+    geometry::UP,
     voxel::{voxel_containing_point, IsFloor},
 };
 
-use amethyst::{
-    core::{
-        math::{Point2, Point3, Vector3},
-        Transform,
-    },
-    renderer::camera::Projection,
-    window::ScreenDimensions,
-};
+use amethyst::core::math::{Point3, Vector3};
 use ilattice3 as lat;
 use ilattice3::prelude::*;
 use itertools::Itertools;
 use ncollide3d::query::Ray;
-
-fn _floor_drag_translation(
-    floor_plane: &Plane,
-    prev_screen_ray: &Line,
-    screen_ray: &Line,
-) -> Vector3<f32> {
-    let p_now = line_plane_intersection(screen_ray, floor_plane);
-    if let LinePlaneIntersection::IntersectionPoint(p_now) = p_now {
-        let p_prev = line_plane_intersection(prev_screen_ray, floor_plane);
-        if let LinePlaneIntersection::IntersectionPoint(p_prev) = p_prev {
-            return p_prev - p_now;
-        }
-    }
-
-    Vector3::zeros()
-}
-
-pub fn floor_drag_translation(
-    floor_plane: &Plane,
-    camera_tfm: &Transform,
-    camera_proj: &Projection,
-    dims: &ScreenDimensions,
-    cursor_pos: Point2<f32>,
-    prev_cursor_pos: Point2<f32>,
-) -> Vector3<f32> {
-    let prev_screen_ray = screen_ray(camera_tfm, camera_proj, dims, prev_cursor_pos);
-    let screen_ray = screen_ray(camera_tfm, camera_proj, dims, cursor_pos);
-
-    _floor_drag_translation(floor_plane, &prev_screen_ray, &screen_ray)
-}
 
 /// Returns all numbers `t` such that `bias + slope * t` is an integer and `t_0 <= t <= t_f`.
 /// Always returns empty vector for constant (`slope == 0.0`) functions, even if the constant is an
@@ -220,7 +183,7 @@ mod tests {
 
     use crate::{
         test_util::{assert_relative_eq_point3, assert_relative_eq_vec},
-        voxel::{VOXEL_CHUNK_SIZE},
+        voxel::VOXEL_CHUNK_SIZE,
     };
 
     #[test]

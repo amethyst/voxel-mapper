@@ -2,7 +2,8 @@ use super::{
     colliding_controller::CollidingController, input::ProcessedInput, smoother::TransformSmoother,
     CameraController, ThirdPersonCameraState, ThirdPersonControlConfig,
 };
-use crate::{collision::VoxelBVT, voxel::VoxelMap};
+
+use voxel_mapper::{collision::VoxelBVT, voxel::VoxelMap};
 
 use amethyst::core::Transform;
 

@@ -1,4 +1,4 @@
-use voxel_mapper::control::camera::{MainCameraTag, ThirdPersonCameraState};
+use crate::control::camera::{MainCameraTag, ThirdPersonCameraState};
 
 use amethyst::{
     core::{ecs::prelude::*, math::Vector3},

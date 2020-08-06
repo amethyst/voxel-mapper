@@ -1,7 +1,6 @@
-use voxel_mapper::{
-    control::hover_3d::ObjectsUnderCursor,
-    voxel::{voxel_containing_point, MyPoint3},
-};
+use crate::control::hover_3d::ObjectsUnderCursor;
+
+use voxel_mapper::voxel::{voxel_containing_point, MyPoint3};
 
 use amethyst::{
     core::ecs::prelude::*,

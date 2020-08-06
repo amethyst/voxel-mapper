@@ -1,6 +1,6 @@
 use super::ThirdPersonControlConfig;
 
-use crate::geometry::{Plane, PolarVector, UP};
+use voxel_mapper::geometry::{Plane, PolarVector, UP};
 
 use amethyst::core::{
     alga::general::RealField,

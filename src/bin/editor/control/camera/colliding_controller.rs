@@ -1,10 +1,9 @@
-use super::{
-    floor_translation::translate_over_floor, input::ProcessedInput, ThirdPersonCameraState,
-    ThirdPersonControlConfig,
-};
+use super::{input::ProcessedInput, ThirdPersonCameraState, ThirdPersonControlConfig};
 
-use crate::{
-    collision::{earliest_toi, extreme_ball_voxel_impact, VoxelBVT},
+use voxel_mapper::{
+    collision::{
+        earliest_toi, extreme_ball_voxel_impact, floor_translation::translate_over_floor, VoxelBVT,
+    },
     voxel::VoxelMap,
 };
 

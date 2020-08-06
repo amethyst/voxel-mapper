@@ -1,12 +1,12 @@
-use crate::bindings::{ActionBinding, GameBindings};
-
-use voxel_mapper::{
+use crate::{
+    bindings::{ActionBinding, GameBindings},
     control::{camera::data::CameraData, hover_3d::ObjectsUnderCursor},
-    voxel::{
-        decode_distance,
-        editor::{EditVoxelsRequest, SetVoxel},
-        voxel_containing_point, Voxel, VoxelMap, EMPTY_VOXEL,
-    },
+};
+
+use voxel_mapper::voxel::{
+    decode_distance,
+    editor::{EditVoxelsRequest, SetVoxel},
+    voxel_containing_point, Voxel, VoxelMap, EMPTY_VOXEL,
 };
 
 use amethyst::{

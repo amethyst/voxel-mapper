@@ -4,14 +4,13 @@ pub mod state;
 
 mod colliding_controller;
 mod final_controller;
-mod floor_translation;
 mod smoother;
 
 pub use self::final_controller::FinalController;
 pub use self::input::{InputConfig, InputProcessor, ProcessedInput};
 pub use self::state::ThirdPersonCameraState;
 
-use crate::{collision::VoxelBVT, voxel::VoxelMap};
+use voxel_mapper::{collision::VoxelBVT, voxel::VoxelMap};
 
 use amethyst::{
     core::{
@@ -149,15 +148,6 @@ where
     B: BindingTypes,
 {
     reader_id: ReaderId<InputEvent<B>>,
-}
-
-impl<B> CameraControlSystem<B>
-where
-    B: BindingTypes,
-{
-    pub fn new(reader_id: ReaderId<InputEvent<B>>) -> Self {
-        Self { reader_id }
-    }
 }
 
 #[derive(Default)]
