@@ -68,14 +68,14 @@ fn run_app(map_file: PathBuf) -> amethyst::Result<()> {
             &[],
         )
         .with(HoverHintSystem, "hover_hint", &["hover_object"])
-        .with_system_desc(EditVoxelSystemDesc, "edit_voxel", &["hover_object"])
+        .with_system_desc(EditVoxelSystemDesc, "edit_voxel", &[])
         .with_system_desc(VoxelSetterSystemDesc, "voxel_setter", &[])
         .with(VoxelChunkReloaderSystem, "chunk_reloader", &[])
         .with(
             // Runs after the setter and reloader to swap completed buffers.
             VoxelDoubleBufferingSystem,
             "double_buffer",
-            &["voxel_setter", "chunk_reloader"],
+            &["edit_voxel", "voxel_setter", "chunk_reloader"],
         )
         .with_bundle(
             RenderingBundle::<DefaultBackend>::new()

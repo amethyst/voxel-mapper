@@ -4,7 +4,8 @@ use voxel_mapper::{
     control::{camera::data::CameraData, hover_3d::ObjectsUnderCursor},
     voxel::{
         decode_distance,
-        setter::{SetVoxel, SetVoxelsEvent},
+        double_buffer::VoxelSetRequestsBackBuffer,
+        setter::{SetVoxel, SetVoxelsRequest},
         voxel_containing_point, Voxel, VoxelMap, EMPTY_VOXEL,
     },
 };
@@ -58,7 +59,7 @@ impl<'a> System<'a> for EditVoxelSystem {
         Read<'a, ObjectsUnderCursor>,
         ReadExpect<'a, VoxelMap>,
         WriteExpect<'a, PaintBrush>,
-        Write<'a, EventChannel<SetVoxelsEvent>>,
+        Write<'a, VoxelSetRequestsBackBuffer>,
         CameraData<'a>,
     );
 
@@ -70,7 +71,7 @@ impl<'a> System<'a> for EditVoxelSystem {
             objects,
             voxel_map,
             mut brush,
-            mut set_voxel_events,
+            mut set_voxel_requests,
             ray_data,
         ): Self::SystemData,
     ) {
@@ -121,26 +122,26 @@ impl<'a> System<'a> for EditVoxelSystem {
             .unwrap()
         {
             lock_brush_dist_from_camera = true;
-            send_event_for_sphere(
+            send_request_for_sphere(
                 SetVoxelOperation::MakeSolid,
                 brush_center,
                 brush.radius,
                 brush.voxel_address,
                 &voxel_map.voxels.map,
-                &mut set_voxel_events,
+                &mut set_voxel_requests.requests,
             );
         } else if input_handler
             .action_is_down(&ActionBinding::RemoveVoxel)
             .unwrap()
         {
             lock_brush_dist_from_camera = true;
-            send_event_for_sphere(
+            send_request_for_sphere(
                 SetVoxelOperation::RemoveSolid,
                 brush_center,
                 brush.radius,
                 0,
                 &voxel_map.voxels.map,
-                &mut set_voxel_events,
+                &mut set_voxel_requests.requests,
             );
         }
 
@@ -159,13 +160,13 @@ impl<'a> System<'a> for EditVoxelSystem {
     }
 }
 
-fn send_event_for_sphere(
+fn send_request_for_sphere(
     operation: SetVoxelOperation,
     center: lat::Point,
     radius: u32,
     palette_address: u8,
     voxels: &ChunkedLatticeMap<Voxel>,
-    set_voxel_events: &mut EventChannel<SetVoxelsEvent>,
+    set_voxel_requests: &mut Vec<SetVoxelsRequest>,
 ) {
     let set_voxels = lat::Extent::from_center_and_radius(center, radius as i32 + 2)
         .into_iter()
@@ -184,7 +185,7 @@ fn send_event_for_sphere(
             }
         })
         .collect();
-    set_voxel_events.single_write(SetVoxelsEvent { voxels: set_voxels });
+    set_voxel_requests.push(SetVoxelsRequest { voxels: set_voxels });
 }
 
 fn determine_new_voxel(

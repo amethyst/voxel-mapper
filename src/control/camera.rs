@@ -26,14 +26,16 @@ use amethyst::{
 };
 use std::marker::PhantomData;
 
+#[cfg(feature = "profiler")]
+use thread_profiler::profile_scope;
+
 pub fn make_camera(position: Point3<f32>, target: Point3<f32>, world: &mut World) -> Entity {
     let (width, height) = world.exec(|screen_dims: ReadExpect<ScreenDimensions>| {
         (screen_dims.width(), screen_dims.height())
     });
 
-    let camera_state = ThirdPersonCameraState::new(
-        position, target, TPC_CONFIG.target_height_over_feet
-    );
+    let camera_state =
+        ThirdPersonCameraState::new(position, target, TPC_CONFIG.target_height_over_feet);
     let input_processor = InputProcessor::new(CAM_INPUT_CONFIG);
     let controller = CameraControllerComponent(Box::new(FinalController::new(TPC_CONFIG)));
 
@@ -187,6 +189,9 @@ where
     );
 
     fn run(&mut self, (mut data, events): Self::SystemData) {
+        #[cfg(feature = "profiler")]
+        profile_scope!("camera_control");
+
         let events: Vec<_> = events.read(&mut self.reader_id).cloned().collect();
 
         data.update(&events);

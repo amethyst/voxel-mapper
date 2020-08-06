@@ -33,7 +33,7 @@ impl<'a> System<'a> for VoxelChunkReloaderSystem {
         ): Self::SystemData,
     ) {
         #[cfg(feature = "profiler")]
-        profile_scope!("chunk_reloader");
+        profile_scope!("voxel_chunk_reloader");
 
         // Do parallel isosurface generation.
         let chunks_to_generate = match dirty_chunks.take() {

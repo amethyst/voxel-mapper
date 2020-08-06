@@ -16,6 +16,9 @@ use ilattice3 as lat;
 use ncollide3d::{bounding_volume::AABB, query::Ray};
 use std::marker::PhantomData;
 
+#[cfg(feature = "profiler")]
+use thread_profiler::profile_scope;
+
 #[derive(Default)]
 pub struct HoverObjectSystem<B> {
     bindings: PhantomData<B>,
@@ -70,6 +73,9 @@ where
     );
 
     fn run(&mut self, (mut objects, voxel_bvt, input_handler, raycast_data): Self::SystemData) {
+        #[cfg(feature = "profiler")]
+        profile_scope!("hover_object");
+
         let (x, y) = match input_handler.mouse_position() {
             Some((x, y)) => (x, y),
             None => return,

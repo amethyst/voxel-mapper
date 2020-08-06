@@ -1,4 +1,4 @@
-use crate::voxel::{double_buffer::VoxelBackBuffer, encode_distance, VoxelMap, EMPTY_VOXEL};
+use crate::voxel::{double_buffer::VoxelEditsBackBuffer, encode_distance, VoxelMap, EMPTY_VOXEL};
 
 use amethyst::{core::ecs::prelude::*, derive::SystemDesc, shrev::EventChannel};
 use ilattice3 as lat;
@@ -11,7 +11,7 @@ use thread_profiler::profile_scope;
 // TODO: delete entire chunks when they become empty
 
 #[derive(Clone)]
-pub struct SetVoxelsEvent {
+pub struct SetVoxelsRequest {
     pub voxels: Vec<(lat::Point, SetVoxel)>,
 }
 
@@ -30,11 +30,11 @@ pub struct SetVoxel {
 #[system_desc(name(VoxelSetterSystemDesc))]
 pub struct VoxelSetterSystem {
     #[system_desc(event_channel_reader)]
-    reader_id: ReaderId<SetVoxelsEvent>,
+    reader_id: ReaderId<SetVoxelsRequest>,
 }
 
 impl VoxelSetterSystem {
-    pub fn new(reader_id: ReaderId<SetVoxelsEvent>) -> Self {
+    pub fn new(reader_id: ReaderId<SetVoxelsRequest>) -> Self {
         VoxelSetterSystem { reader_id }
     }
 }
@@ -43,8 +43,8 @@ impl<'a> System<'a> for VoxelSetterSystem {
     #[allow(clippy::type_complexity)]
     type SystemData = (
         ReadExpect<'a, VoxelMap>,
-        Write<'a, Option<VoxelBackBuffer>>,
-        Read<'a, EventChannel<SetVoxelsEvent>>,
+        Write<'a, Option<VoxelEditsBackBuffer>>,
+        Read<'a, EventChannel<SetVoxelsRequest>>,
     );
 
     fn run(&mut self, (map, mut backbuffer, set_events): Self::SystemData) {
@@ -52,7 +52,7 @@ impl<'a> System<'a> for VoxelSetterSystem {
         profile_scope!("voxel_setter");
 
         let mut edited_chunks = HashMap::new();
-        for SetVoxelsEvent { voxels } in set_events.read(&mut self.reader_id) {
+        for SetVoxelsRequest { voxels } in set_events.read(&mut self.reader_id) {
             for (
                 p,
                 SetVoxel {
@@ -92,7 +92,7 @@ impl<'a> System<'a> for VoxelSetterSystem {
         }
 
         assert!(backbuffer.is_none());
-        *backbuffer = Some(VoxelBackBuffer {
+        *backbuffer = Some(VoxelEditsBackBuffer {
             edited_chunks,
             neighbor_chunks,
         });
