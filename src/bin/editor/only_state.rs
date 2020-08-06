@@ -53,10 +53,10 @@ impl SimpleState for OnlyState {
 
         let map = load_voxel_map(&self.map_file).expect("Failed to load voxel map");
 
-        let (mut assets, map) = world.exec(|mut loader: VoxelAssetLoader| {
+        let mut assets = world.exec(|mut loader: VoxelAssetLoader| {
             let mut unused_progress = ProgressCounter::new();
 
-            loader.start_loading(map, &mut unused_progress)
+            loader.start_loading(&map, &mut unused_progress)
         });
         world.exec(
             |(mut voxel_bvt, mut manager): (WriteExpect<VoxelBVT>, VoxelMeshManager)| {

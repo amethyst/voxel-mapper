@@ -15,24 +15,17 @@ pub struct VoxelAssetLoader<'a> {
 }
 
 impl<'a> VoxelAssetLoader<'a> {
-    pub fn start_loading(
-        &mut self,
-        map: VoxelMap,
-        progress: &mut ProgressCounter,
-    ) -> (VoxelAssets, VoxelMap) {
+    pub fn start_loading(&mut self, map: &VoxelMap, progress: &mut ProgressCounter) -> VoxelAssets {
         let material_arrays =
             self.start_loading_materials(&map.palette_assets.material_arrays, &mut *progress);
         let meshes = self
             .mesh_loader
             .start_loading_all_chunks(&map.voxels, &mut *progress);
 
-        (
-            VoxelAssets {
-                material_arrays,
-                meshes,
-            },
-            map,
-        )
+        VoxelAssets {
+            material_arrays,
+            meshes,
+        }
     }
 
     fn start_loading_materials(
