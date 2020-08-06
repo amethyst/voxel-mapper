@@ -24,8 +24,8 @@ pub struct SetVoxel {
     pub distance: f32,
 }
 
-/// Updates voxels when it receives `SetVoxel` events and sends `ChunkChanged` events for all chunks
-/// that are affected.
+/// Writes the `EditVoxelsRequest`s into the affected chunks out of place and puts the chunked edits
+/// into the `EditedChunksBackBuffer` to be merged in at the end of the frame.
 #[derive(SystemDesc)]
 #[system_desc(name(VoxelEditorSystemDesc))]
 pub struct VoxelEditorSystem {

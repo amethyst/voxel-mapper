@@ -13,11 +13,7 @@ use voxel_brush::VoxelBrushSystemDesc;
 use voxel_mapper::{
     control::{camera::CameraControlSystemDesc, hover_3d::HoverObjectSystem},
     rendering::splatted_triplanar_pbr_pass::RenderSplattedTriplanarPbr,
-    // TODO: bundle these
-    voxel::{
-        chunk_processor::VoxelChunkProcessorSystem, double_buffer::VoxelDoubleBufferingSystem,
-        editor::VoxelEditorSystemDesc,
-    },
+    voxel::bundle::VoxelSystemBundle,
 };
 
 use amethyst::{
@@ -67,16 +63,9 @@ fn run_app(map_file: PathBuf) -> amethyst::Result<()> {
             "hover_object",
             &[],
         )
-        .with(HoverHintSystem, "hover_hint", &["hover_object"])
+        .with(HoverHintSystem, "hover_hint", &[])
         .with_system_desc(VoxelBrushSystemDesc, "voxel_brush", &[])
-        .with_system_desc(VoxelEditorSystemDesc, "voxel_setter", &[])
-        .with(VoxelChunkProcessorSystem, "chunk_processor", &[])
-        .with(
-            // Runs after the setter and reloader to swap completed buffers.
-            VoxelDoubleBufferingSystem,
-            "double_buffer",
-            &["voxel_brush", "voxel_setter", "chunk_processor"],
-        )
+        .with_bundle(VoxelSystemBundle)?
         .with_bundle(
             RenderingBundle::<DefaultBackend>::new()
                 .with_plugin(

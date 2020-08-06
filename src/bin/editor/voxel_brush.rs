@@ -71,7 +71,7 @@ impl<'a> System<'a> for VoxelBrushSystem {
             objects,
             voxel_map,
             mut brush,
-            mut set_voxel_requests,
+            mut edit_voxel_requests,
             ray_data,
         ): Self::SystemData,
     ) {
@@ -128,7 +128,7 @@ impl<'a> System<'a> for VoxelBrushSystem {
                 brush.radius,
                 brush.voxel_address,
                 &voxel_map.voxels.map,
-                &mut set_voxel_requests.requests,
+                &mut edit_voxel_requests,
             );
         } else if input_handler
             .action_is_down(&ActionBinding::RemoveVoxel)
@@ -141,7 +141,7 @@ impl<'a> System<'a> for VoxelBrushSystem {
                 brush.radius,
                 0,
                 &voxel_map.voxels.map,
-                &mut set_voxel_requests.requests,
+                &mut edit_voxel_requests,
             );
         }
 
@@ -166,7 +166,7 @@ fn send_request_for_sphere(
     radius: u32,
     palette_address: u8,
     voxels: &ChunkedLatticeMap<Voxel>,
-    set_voxel_requests: &mut Vec<EditVoxelsRequest>,
+    edit_voxel_requests: &mut EditVoxelsRequestBackBuffer,
 ) {
     let set_voxels = lat::Extent::from_center_and_radius(center, radius as i32 + 2)
         .into_iter()
@@ -185,7 +185,7 @@ fn send_request_for_sphere(
             }
         })
         .collect();
-    set_voxel_requests.push(EditVoxelsRequest { voxels: set_voxels });
+    edit_voxel_requests.push_request(EditVoxelsRequest { voxels: set_voxels });
 }
 
 fn determine_new_voxel(

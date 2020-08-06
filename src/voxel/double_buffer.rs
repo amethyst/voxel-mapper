@@ -13,7 +13,13 @@ use thread_profiler::profile_scope;
 /// to the `VoxelMap` at the end of frame T+1.
 #[derive(Default)]
 pub struct EditVoxelsRequestBackBuffer {
-    pub requests: Vec<EditVoxelsRequest>,
+    requests: Vec<EditVoxelsRequest>,
+}
+
+impl EditVoxelsRequestBackBuffer {
+    pub fn push_request(&mut self, edit: EditVoxelsRequest) {
+        self.requests.push(edit);
+    }
 }
 
 /// For the sake of pipelining, all voxels edits are first written out of place by the
@@ -30,8 +36,9 @@ pub struct DirtyChunks {
     pub chunks: HashSet<lat::Point>,
 }
 
-/// The system responsible for merging the `EditedChunksBackBuffer` into the `VoxelMap`. This allows the
-/// `VoxelChunkProcessorSystem` and `VoxelEditorSystem` to run in parallel.
+/// The system responsible for merging the `EditedChunksBackBuffer` into the `VoxelMap`. This allows
+/// the `VoxelChunkProcessorSystem` and `VoxelEditorSystem` to run in parallel at the expense of a
+/// single frame of latency.
 pub struct VoxelDoubleBufferingSystem;
 
 impl<'a> System<'a> for VoxelDoubleBufferingSystem {

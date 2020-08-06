@@ -1,4 +1,5 @@
 pub mod asset_loader;
+pub mod bundle;
 pub mod chunk_processor;
 pub mod double_buffer;
 pub mod editor;
