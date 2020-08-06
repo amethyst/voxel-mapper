@@ -7,7 +7,7 @@ voxel worlds.
 
 ![Demo](/screenshots/demo.gif)
 
-## Usage
+## Editor Usage
 
 To build and run with the example assets:
 
@@ -23,6 +23,18 @@ Control bindings can be found in "assets/config/map_editor_bindings.ron".
 
 If you want to import your own material images, take a look at [material-converter](https://github.com/bonsairobo/material-converter).
 It makes it easy to import material images from sites like freepbr.com (don't you wish they meant the beer?).
+
+## Library Usage
+
+To use the voxel mapper in your own Amethyst app, you'll need to:
+
+- Add the `VoxelSystemBundle` to your `Dispatcher`
+- Add the `RenderSplattedTriplanarPbr` render plugin to your renderer
+- Insert a `VoxelMap` into your `World`
+    - You can create one in the editor and save it to a ".bin" file
+    - Reference the ".bin" file in your RON map file and load it with `load_voxel_map`
+- Insert a `VoxelAssets` into your `World`
+    - You load the assets using the `VoxelAssetLoader` and your `VoxelMap`
 
 ## Development
 
