@@ -1,4 +1,4 @@
-use crate::voxel::{setter::SetVoxelsRequest, Voxel, VoxelMap};
+use crate::voxel::{editor::EditVoxelsRequest, Voxel, VoxelMap};
 
 use amethyst::{core::ecs::prelude::*, shrev::EventChannel};
 use ilattice3 as lat;
@@ -9,18 +9,18 @@ use std::collections::{HashMap, HashSet};
 use thread_profiler::profile_scope;
 
 /// Used by systems that want to double buffer their `SetVoxelRequests`, allowing them to run in
-/// concurrently with the `VoxelSetterSystem`. Any requests written here in frame T will be written
+/// concurrently with the `VoxelEditorSystem`. Any requests written here in frame T will be written
 /// to the `VoxelMap` at the end of frame T+1.
 #[derive(Default)]
-pub struct VoxelSetRequestsBackBuffer {
-    pub requests: Vec<SetVoxelsRequest>,
+pub struct EditVoxelsRequestBackBuffer {
+    pub requests: Vec<EditVoxelsRequest>,
 }
 
 /// For the sake of pipelining, all voxels edits are first written out of place by the
-/// `VoxelSetterSystem`. They get merged into the `VoxelMap` by the `VoxelDoubleBufferingSystem` at
+/// `VoxelEditorSystem`. They get merged into the `VoxelMap` by the `VoxelDoubleBufferingSystem` at
 /// the end of a frame.
 #[derive(Default)]
-pub struct VoxelEditsBackBuffer {
+pub struct EditedChunksBackBuffer {
     pub edited_chunks: HashMap<lat::Point, VecLatticeMap<Voxel>>,
     pub neighbor_chunks: Vec<lat::Point>,
 }
@@ -30,15 +30,15 @@ pub struct DirtyChunks {
     pub chunks: HashSet<lat::Point>,
 }
 
-/// The system responsible for merging the `VoxelEditsBackBuffer` into the `VoxelMap`. This allows the
-/// `VoxelChunkReloaderSystem` and `VoxelSetterSystem` to run in parallel.
+/// The system responsible for merging the `EditedChunksBackBuffer` into the `VoxelMap`. This allows the
+/// `VoxelChunkReloaderSystem` and `VoxelEditorSystem` to run in parallel.
 pub struct VoxelDoubleBufferingSystem;
 
 impl<'a> System<'a> for VoxelDoubleBufferingSystem {
     type SystemData = (
-        Write<'a, VoxelSetRequestsBackBuffer>,
-        Write<'a, EventChannel<SetVoxelsRequest>>,
-        Write<'a, Option<VoxelEditsBackBuffer>>,
+        Write<'a, EditVoxelsRequestBackBuffer>,
+        Write<'a, EventChannel<EditVoxelsRequest>>,
+        Write<'a, Option<EditedChunksBackBuffer>>,
         Write<'a, Option<DirtyChunks>>,
         WriteExpect<'a, VoxelMap>,
     );
@@ -56,7 +56,7 @@ impl<'a> System<'a> for VoxelDoubleBufferingSystem {
         set_voxels_channel.drain_vec_write(&mut set_requests.requests);
 
         // Merge the edits into the map.
-        let VoxelEditsBackBuffer {
+        let EditedChunksBackBuffer {
             edited_chunks,
             neighbor_chunks,
         } = edits.take().unwrap();
