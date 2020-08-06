@@ -1,25 +1,22 @@
 use amethyst::renderer::{mtl::FullTextureSet, pass::Base3DPassDef, RenderBase3D};
 use rendy::{
+    hal::pso::ShaderStageFlags,
     mesh::{AsVertex, VertexFormat},
-    shader::{ShaderKind, SourceLanguage, SourceShaderInfo, SpirvShader},
+    shader::SpirvShader,
     util::types::vertex::{Color, Normal, Position},
 };
 
 lazy_static::lazy_static! {
-    static ref POS_COLOR_NORM_VERTEX: SpirvShader = SourceShaderInfo::new(
-        include_str!("shaders/pos_color_norm.vert"),
-        "shaders/pos_color_norm.vert",
-        ShaderKind::Vertex,
-        SourceLanguage::GLSL,
+    static ref POS_COLOR_NORM_VERTEX: SpirvShader = SpirvShader::from_bytes(
+        include_bytes!("shaders/pos_color_norm.spv"),
+        ShaderStageFlags::VERTEX,
         "main",
-    ).precompile().unwrap();
-    static ref SPLATTED_TRIPLANAR_PBR_FRAGMENT: SpirvShader = SourceShaderInfo::new(
-        include_str!("shaders/splatted_triplanar_pbr.frag"),
-        "shaders/splatted_triplanar_pbr.frag",
-        ShaderKind::Fragment,
-        SourceLanguage::GLSL,
+    ).unwrap();
+    static ref SPLATTED_TRIPLANAR_PBR_FRAGMENT: SpirvShader = SpirvShader::from_bytes(
+        include_bytes!("shaders/splatted_triplanar_pbr.spv"),
+        ShaderStageFlags::FRAGMENT,
         "main",
-    ).precompile().unwrap();
+    ).unwrap();
 }
 
 #[derive(Debug)]
