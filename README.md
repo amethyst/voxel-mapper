@@ -36,12 +36,14 @@ It's early days for this project. These features are currently supported:
 - a camera controller that resolves collisions with the voxels
 - texture splatting
 
-Planned features:
+Planned features (by priority):
 
-- more realistic texture splatting using depth textures
-- texture detiling
-- more materials
-- dynamic voxel types (e.g. water, foliage)
-- beautiful example maps
-- level of detail
-- procedural generation
+1. multiple material arrays
+2. memory usage scales to large scenes / draw distance
+3. more realistic texture splatting using depth textures
+4. shadows
+5. procedural generation
+6. dynamic voxel types (e.g. water, foliage)
+7. beautiful example maps
+8. level of detail
+9. texture detiling

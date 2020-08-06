@@ -23,7 +23,7 @@ lazy_static::lazy_static! {
 pub struct SplattedTriplanarPbrPassDef;
 
 impl Base3DPassDef for SplattedTriplanarPbrPassDef {
-    const NAME: &'static str = "TriplanarPbr";
+    const NAME: &'static str = "SplattedTriplanarPbr";
     type TextureSet = FullTextureSet;
     fn vertex_shader() -> &'static SpirvShader {
         &POS_COLOR_NORM_VERTEX
