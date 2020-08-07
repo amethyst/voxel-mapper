@@ -7,6 +7,10 @@ voxel worlds.
 
 ![Demo](/screenshots/demo.gif)
 
+Supports both smooth voxels and cube voxels.
+
+![Demo](/screenshots/cubey.PNG)
+
 ## Editor Usage
 
 To build and run with the example assets:
