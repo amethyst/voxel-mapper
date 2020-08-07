@@ -1,4 +1,4 @@
-use super::generate_mesh_vertices;
+use super::generate_mesh_vertices_with_surface_nets;
 
 use crate::{
     assets::{BoundedMesh, IndexedPosColorNormVertices, MeshLoader},
@@ -36,7 +36,7 @@ impl<'a> VoxelMeshLoader<'a> {
         let chunk_meshes = voxels
             .iter_chunks_with_boundary()
             .filter_map(|(chunk_key, chunk_and_boundary)| {
-                let vertices = generate_mesh_vertices(&chunk_and_boundary);
+                let vertices = generate_mesh_vertices_with_surface_nets(&chunk_and_boundary);
 
                 vertices.map(|v| (*chunk_key, self.start_loading_chunk(v, progress)))
             })

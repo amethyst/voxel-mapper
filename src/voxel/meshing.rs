@@ -11,18 +11,26 @@ use amethyst::core::ecs::prelude::*;
 use amethyst::renderer::rendy::mesh::{Color, Normal, Position};
 use ilattice3 as lat;
 use ilattice3::{prelude::*, GetPaletteAddress, HasIndexer, Indexer, LatticeVoxels, CUBE_CORNERS};
-use ilattice3_mesh::{surface_nets, SurfaceNetsOutput, SurfaceNetsVoxel};
+use ilattice3_mesh::{
+    greedy_quads, surface_nets, PosNormMaterialMesh, PosNormMaterialQuadMeshFactory,
+    SurfaceNetsOutput, SurfaceNetsVoxel,
+};
 use std::collections::HashMap;
 
 #[cfg(feature = "profiler")]
 use thread_profiler::profile_scope;
+
+pub enum MeshMode {
+    SurfaceNets,
+    GreedyQuads,
+}
 
 #[derive(Default)]
 pub struct VoxelMeshEntities {
     pub chunk_entities: HashMap<lat::Point, Vec<Entity>>,
 }
 
-pub fn generate_mesh_vertices<I>(
+pub fn generate_mesh_vertices_with_surface_nets<I>(
     chunk_and_boundary: &LatticeVoxels<'_, VoxelInfo, Voxel, I>,
 ) -> Option<IndexedPosColorNormVertices>
 where
@@ -132,6 +140,14 @@ impl<'a, I> GetExtent for LatticeVoxelsMeshInfo<'a, I> {
     }
 }
 
+// The current vertex format is limited to 4 numbers for material weights.
+const WEIGHT_TABLE: [[f32; 4]; 4] = [
+    [1.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0],
+    [0.0, 0.0, 0.0, 1.0],
+];
+
 /// Uses a kernel to average the adjacent materials for each surface point.
 fn calculate_material_weights<V, I>(voxels: &V, surface_points: &[lat::Point]) -> Vec<[f32; 4]>
 where
@@ -140,14 +156,6 @@ where
 {
     #[cfg(feature = "profiler")]
     profile_scope!("material_weights");
-
-    // The current vertex format is limited to 4 numbers for material weights.
-    const WEIGHT_TABLE: [[f32; 4]; 4] = [
-        [1.0, 0.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0, 0.0],
-        [0.0, 0.0, 1.0, 0.0],
-        [0.0, 0.0, 0.0, 1.0],
-    ];
 
     let sup = voxels.get_extent().get_local_supremum();
 
@@ -181,4 +189,50 @@ where
 struct VoxelMeshInfo {
     distance: f32,
     material_index: ArrayMaterialIndex,
+}
+
+pub fn generate_mesh_vertices_with_greedy_quads<V, I>(
+    chunk: &V,
+) -> Option<IndexedPosColorNormVertices>
+where
+    V: GetExtent + GetWorldRef<Data = VoxelInfo> + HasIndexer<Indexer = I> + Send + Sync,
+    I: Indexer + Send + Sync,
+{
+    #[cfg(feature = "profiler")]
+    profile_scope!("generate_mesh_vertices");
+
+    let PosNormMaterialMesh {
+        positions,
+        normals,
+        materials,
+        indices,
+    } = {
+        #[cfg(feature = "profiler")]
+        profile_scope!("greedy_quads");
+
+        greedy_quads::<_, _, _, PosNormMaterialQuadMeshFactory<ArrayMaterialIndex>>(
+            chunk,
+            *chunk.get_extent(),
+        )
+    };
+
+    if indices.is_empty() {
+        return None;
+    }
+
+    let vertex_material_weights = materials
+        .into_iter()
+        .map(|m: ArrayMaterialIndex| WEIGHT_TABLE[m.0 as usize]);
+
+    let positions = positions.clone().into_iter().map(|p| Position(p)).collect();
+    let colors = vertex_material_weights.map(|w| Color(w)).collect();
+    let normals = normals.clone().into_iter().map(|n| Normal(n)).collect();
+    let vertices = PosColorNormVertices {
+        positions,
+        colors,
+        normals,
+    };
+    let indices: Vec<_> = indices.into_iter().map(|i| i as u32).collect();
+
+    Some(IndexedPosColorNormVertices { vertices, indices })
 }

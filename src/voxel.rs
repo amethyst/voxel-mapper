@@ -17,6 +17,7 @@ use amethyst::{
 };
 use ilattice3 as lat;
 use ilattice3::{closest_normal, ChunkedPaletteLatticeMap, GetPaletteAddress, IsEmpty};
+use ilattice3_mesh::GreedyQuadsVoxel;
 use ncollide3d::{bounding_volume::AABB, shape::Cuboid};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -40,6 +41,14 @@ pub struct VoxelInfo {
 impl IsEmpty for VoxelInfo {
     fn is_empty(&self) -> bool {
         self.flags.is_empty
+    }
+}
+
+impl GreedyQuadsVoxel for VoxelInfo {
+    type Material = ArrayMaterialIndex;
+
+    fn material(&self) -> Self::Material {
+        self.material_index
     }
 }
 

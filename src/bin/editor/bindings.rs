@@ -5,6 +5,7 @@ use std::fmt;
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ActionBinding {
     ExitApp,
+    ChangeMeshMode,
     CreateVoxel,
     RemoveVoxel,
     IncreaseBrushRadius,

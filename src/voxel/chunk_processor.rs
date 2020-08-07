@@ -3,7 +3,10 @@ use crate::{
     collision::voxel_bvt::{generate_chunk_bvt, ChunkBVT, VoxelBVT},
     voxel::{
         double_buffer::DirtyChunks,
-        meshing::{generate_mesh_vertices, loader::VoxelMeshLoader, manager::VoxelMeshManager},
+        meshing::{
+            generate_mesh_vertices_with_greedy_quads, generate_mesh_vertices_with_surface_nets,
+            loader::VoxelMeshLoader, manager::VoxelMeshManager,
+        },
         VoxelAssets, VoxelMap,
     },
 };
@@ -16,12 +19,18 @@ use rayon::prelude::*;
 #[cfg(feature = "profiler")]
 use thread_profiler::profile_scope;
 
+pub enum MeshMode {
+    SurfaceNets,
+    GreedyQuads,
+}
+
 pub struct VoxelChunkProcessorSystem;
 
 impl<'a> System<'a> for VoxelChunkProcessorSystem {
     #[allow(clippy::type_complexity)]
     type SystemData = (
         ReadExpect<'a, VoxelMap>,
+        ReadExpect<'a, MeshMode>,
         Write<'a, Option<DirtyChunks>>,
         WriteExpect<'a, VoxelAssets>,
         WriteExpect<'a, VoxelBVT>,
@@ -32,7 +41,7 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
     fn run(
         &mut self,
         (
-            map, mut dirty_chunks, mut voxel_assets, mut voxel_bvt, loader, mut manager
+            map, mesh_mode, mut dirty_chunks, mut voxel_assets, mut voxel_bvt, loader, mut manager
         ): Self::SystemData,
     ) {
         #[cfg(feature = "profiler")]
@@ -60,7 +69,15 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
                 // TODO: figure out how to avoid copying like this; it's pretty slow
                 let chunk_voxels = map.voxels.get_chunk_and_boundary(&chunk_key);
 
-                let vertices = generate_mesh_vertices(&chunk_voxels);
+                let vertices = match *mesh_mode {
+                    MeshMode::SurfaceNets => {
+                        generate_mesh_vertices_with_surface_nets(&chunk_voxels)
+                    }
+                    MeshMode::GreedyQuads => {
+                        generate_mesh_vertices_with_greedy_quads(&chunk_voxels)
+                    }
+                };
+
                 let new_bvt = generate_chunk_bvt(&chunk_voxels, chunk_voxels.get_extent());
 
                 (chunk_key, new_bvt, vertices)

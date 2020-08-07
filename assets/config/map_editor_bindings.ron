@@ -6,5 +6,6 @@
         CreateVoxel: [[Key(C)]],
         IncreaseBrushRadius: [[Key(Up)]],
         DecreaseBrushRadius: [[Key(Down)]],
+        ChangeMeshMode: [[Key(M)]],
     },
 )

@@ -4,6 +4,7 @@ use crate::{
 };
 
 use voxel_mapper::voxel::{
+    chunk_processor::MeshMode,
     decode_distance,
     editor::{EditVoxelsRequest, SetVoxel},
     voxel_containing_point, Voxel, VoxelMap, EMPTY_VOXEL,
@@ -58,6 +59,7 @@ impl<'a> System<'a> for VoxelBrushSystem {
         Read<'a, ObjectsUnderCursor>,
         ReadExpect<'a, VoxelMap>,
         WriteExpect<'a, PaintBrush>,
+        WriteExpect<'a, MeshMode>,
         Write<'a, EventChannel<EditVoxelsRequest>>,
         CameraData<'a>,
     );
@@ -70,6 +72,7 @@ impl<'a> System<'a> for VoxelBrushSystem {
             objects,
             voxel_map,
             mut brush,
+            mut mesh_mode,
             mut edit_voxel_requests,
             ray_data,
         ): Self::SystemData,
@@ -90,6 +93,12 @@ impl<'a> System<'a> for VoxelBrushSystem {
                 InputEvent::ActionPressed(ActionBinding::DecreaseBrushRadius) => {
                     brush.radius = (brush.radius - 1).max(1);
                     log::info!("Set brush radius to {}", brush.radius);
+                }
+                InputEvent::ActionPressed(ActionBinding::ChangeMeshMode) => {
+                    *mesh_mode = match *mesh_mode {
+                        MeshMode::SurfaceNets => MeshMode::GreedyQuads,
+                        MeshMode::GreedyQuads => MeshMode::SurfaceNets,
+                    };
                 }
                 InputEvent::ButtonPressed(Button::Key(key)) => {
                     if key_is_number(*key) {
