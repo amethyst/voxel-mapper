@@ -3,14 +3,15 @@ pub mod manager;
 
 use crate::{
     assets::{IndexedPosColorNormVertices, PosColorNormVertices},
-    voxel::{decode_distance, Voxel, VoxelGraphics, VoxelInfo},
+    rendering::splatted_triplanar_pbr_pass::ArrayMaterialIndex,
+    voxel::{decode_distance, Voxel, VoxelInfo},
 };
 
 use amethyst::core::ecs::prelude::*;
 use amethyst::renderer::rendy::mesh::{Color, Normal, Position};
 use ilattice3 as lat;
 use ilattice3::{prelude::*, GetPaletteAddress, HasIndexer, Indexer, LatticeVoxels, CUBE_CORNERS};
-use ilattice3_mesh::{surface_nets, SurfaceNetsOutput};
+use ilattice3_mesh::{surface_nets, SurfaceNetsOutput, SurfaceNetsVoxel};
 use std::collections::HashMap;
 
 #[cfg(feature = "profiler")]
@@ -40,7 +41,7 @@ where
         profile_scope!("surface_nets");
 
         surface_nets(
-            &LatticeVoxelsForMeshing(chunk_and_boundary),
+            &LatticeVoxelsDistance(chunk_and_boundary),
             chunk_and_boundary.get_extent(),
         )
     };
@@ -49,10 +50,8 @@ where
         return None;
     }
 
-    let vertex_material_weights = calculate_material_weights(
-        &LatticeVoxelsForMeshing(chunk_and_boundary),
-        &surface_points,
-    );
+    let vertex_material_weights =
+        calculate_material_weights(&LatticeVoxelsMeshInfo(chunk_and_boundary), &surface_points);
 
     let positions = positions.clone().into_iter().map(|p| Position(p)).collect();
     let colors = vertex_material_weights
@@ -70,41 +69,73 @@ where
     Some(IndexedPosColorNormVertices { vertices, indices })
 }
 
-pub struct LatticeVoxelsForMeshing<'a, I>(&'a LatticeVoxels<'a, VoxelInfo, Voxel, I>);
+struct LatticeVoxelsDistance<'a, I>(&'a LatticeVoxels<'a, VoxelInfo, Voxel, I>);
 
-impl<'a, I> GetLinear for LatticeVoxelsForMeshing<'a, I>
+impl<'a, I> GetLinear for LatticeVoxelsDistance<'a, I>
 where
     I: Indexer,
 {
-    type Data = VoxelGraphics;
+    type Data = SignedDistance;
 
     fn get_linear(&self, i: usize) -> Self::Data {
         let voxel = self.0.map.get_linear(i);
 
-        VoxelGraphics {
-            material_index: self.0.palette[voxel.get_palette_address()].material_index,
-            distance: decode_distance(voxel.distance),
-        }
+        SignedDistance(decode_distance(voxel.distance))
     }
 }
 
-impl<'a, I> GetExtent for LatticeVoxelsForMeshing<'a, I> {
-    fn get_extent(&self) -> &lat::Extent {
-        self.0.get_extent()
-    }
-}
-
-impl<'a, I> HasIndexer for LatticeVoxelsForMeshing<'a, I>
+impl<'a, I> HasIndexer for LatticeVoxelsDistance<'a, I>
 where
     I: Indexer,
 {
     type Indexer = I;
 }
 
+struct SignedDistance(f32);
+
+impl SurfaceNetsVoxel for SignedDistance {
+    fn distance(&self) -> f32 {
+        self.0
+    }
+}
+
+struct LatticeVoxelsMeshInfo<'a, I>(&'a LatticeVoxels<'a, VoxelInfo, Voxel, I>);
+
+impl<'a, I> GetLinear for LatticeVoxelsMeshInfo<'a, I>
+where
+    I: Indexer,
+{
+    type Data = VoxelMeshInfo;
+
+    fn get_linear(&self, i: usize) -> Self::Data {
+        let voxel = self.0.map.get_linear(i);
+        let material_index = self.0.palette[voxel.get_palette_address()].material_index;
+        let distance = decode_distance(voxel.distance);
+
+        VoxelMeshInfo {
+            distance,
+            material_index,
+        }
+    }
+}
+
+impl<'a, I> HasIndexer for LatticeVoxelsMeshInfo<'a, I>
+where
+    I: Indexer,
+{
+    type Indexer = I;
+}
+
+impl<'a, I> GetExtent for LatticeVoxelsMeshInfo<'a, I> {
+    fn get_extent(&self) -> &lat::Extent {
+        self.0.get_extent()
+    }
+}
+
 /// Uses a kernel to average the adjacent materials for each surface point.
 fn calculate_material_weights<V, I>(voxels: &V, surface_points: &[lat::Point]) -> Vec<[f32; 4]>
 where
-    V: GetExtent + GetLinear<Data = VoxelGraphics> + HasIndexer<Indexer = I>,
+    V: GetExtent + GetLinear<Data = VoxelMeshInfo> + HasIndexer<Indexer = I>,
     I: Indexer,
 {
     #[cfg(feature = "profiler")]
@@ -145,4 +176,9 @@ where
     }
 
     material_weights
+}
+
+struct VoxelMeshInfo {
+    distance: f32,
+    material_index: ArrayMaterialIndex,
 }

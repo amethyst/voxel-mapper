@@ -1,4 +1,4 @@
-use crate::rendering::splatted_triplanar_pbr_pass::ArrayMaterialId;
+use crate::rendering::splatted_triplanar_pbr_pass::{ArrayMaterialId, ArrayMaterialIndex};
 
 pub mod asset_loader;
 pub mod bundle;
@@ -17,7 +17,6 @@ use amethyst::{
 };
 use ilattice3 as lat;
 use ilattice3::{closest_normal, ChunkedPaletteLatticeMap, GetPaletteAddress, IsEmpty};
-use ilattice3_mesh::SurfaceNetsVoxel;
 use ncollide3d::{bounding_volume::AABB, shape::Cuboid};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -35,7 +34,7 @@ pub struct VoxelFlags {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct VoxelInfo {
     pub flags: VoxelFlags,
-    pub material_index: VoxelMaterialIndex,
+    pub material_index: ArrayMaterialIndex,
 }
 
 impl IsEmpty for VoxelInfo {
@@ -88,18 +87,6 @@ pub fn decode_distance(encoded: i8) -> f32 {
     encoded as f32 / SDF_QUANTIZE_FACTOR
 }
 
-/// The data required for each voxel to generate a mesh.
-pub struct VoxelGraphics {
-    pub material_index: VoxelMaterialIndex,
-    pub distance: f32,
-}
-
-impl SurfaceNetsVoxel for VoxelGraphics {
-    fn distance(&self) -> f32 {
-        self.distance
-    }
-}
-
 pub struct VoxelMap {
     pub palette_assets: VoxelPaletteAssets,
     pub voxels: ChunkedPaletteLatticeMap<VoxelInfo, Voxel>,
@@ -116,13 +103,6 @@ pub const VOXEL_CHUNK_SIZE: lat::Point = lat::Point {
     y: 16,
     z: 16,
 };
-
-/// Index into the array material that's bound while drawing a voxel mesh. The vertex format will
-/// contain a weighted vector of these indices.
-#[derive(Clone, Copy, Debug, Deserialize, Hash, Eq, PartialEq, Serialize)]
-pub struct VoxelMaterialIndex(pub VoxelMaterialIndexInt);
-
-pub type VoxelMaterialIndexInt = u8;
 
 #[derive(Default)]
 pub struct VoxelAssets {

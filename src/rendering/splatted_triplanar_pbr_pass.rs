@@ -55,3 +55,10 @@ pub type RenderSplattedTriplanarPbr = RenderBase3D<SplattedTriplanarPbrPassDef>;
     Clone, Copy, Debug, Default, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize,
 )]
 pub struct ArrayMaterialId(pub usize);
+
+/// Index into the array material that's bound while drawing a voxel mesh. The vertex format will
+/// contain a weighted vector of these indices.
+#[derive(Clone, Copy, Debug, Deserialize, Hash, Eq, PartialEq, Serialize)]
+pub struct ArrayMaterialIndex(pub ArrayMaterialIndexInt);
+
+pub type ArrayMaterialIndexInt = u8;
