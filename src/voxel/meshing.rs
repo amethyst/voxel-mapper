@@ -12,7 +12,7 @@ use amethyst::renderer::rendy::mesh::{Color, Normal, Position};
 use ilattice3 as lat;
 use ilattice3::{prelude::*, GetPaletteAddress, HasIndexer, Indexer, LatticeVoxels, CUBE_CORNERS};
 use ilattice3_mesh::{
-    greedy_quads, surface_nets, PosNormMaterialMesh, PosNormMaterialQuadMeshFactory,
+    greedy_quads, make_pos_norm_material_mesh_from_quads, surface_nets, PosNormMaterialMesh,
     SurfaceNetsOutput, SurfaceNetsVoxel,
 };
 use std::collections::HashMap;
@@ -210,10 +210,9 @@ where
         #[cfg(feature = "profiler")]
         profile_scope!("greedy_quads");
 
-        greedy_quads::<_, _, _, PosNormMaterialQuadMeshFactory<ArrayMaterialIndex>>(
-            chunk,
-            *chunk.get_extent(),
-        )
+        let quads = greedy_quads(chunk, *chunk.get_extent());
+
+        make_pos_norm_material_mesh_from_quads(&quads)
     };
 
     if indices.is_empty() {

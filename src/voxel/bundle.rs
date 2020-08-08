@@ -1,5 +1,6 @@
 use super::{
-    chunk_processor::VoxelChunkProcessorSystem, double_buffer::VoxelDoubleBufferingSystem,
+    chunk_processor::{MeshMode, VoxelChunkProcessorSystem},
+    double_buffer::VoxelDoubleBufferingSystem,
     editor::VoxelEditorSystemDesc,
 };
 use crate::collision::VoxelBVT;
@@ -23,6 +24,7 @@ impl<'a, 'b> SystemBundle<'a, 'b> for VoxelSystemBundle {
         dispatcher: &mut DispatcherBuilder<'a, 'b>,
     ) -> Result<(), amethyst::Error> {
         world.insert(VoxelBVT::new());
+        world.insert(MeshMode::SurfaceNets);
 
         dispatcher.add(VoxelEditorSystemDesc.build(world), "voxel_editor", &[]);
         dispatcher.add(VoxelChunkProcessorSystem, "voxel_chunk_processor", &[]);

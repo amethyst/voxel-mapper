@@ -7,7 +7,6 @@ use voxel_mapper::{
     collision::voxel_bvt::{insert_all_chunk_bvts, VoxelBVT},
     voxel::{
         asset_loader::VoxelAssetLoader,
-        chunk_processor::MeshMode,
         map_file::{load_voxel_map, save_voxel_map},
         meshing::manager::VoxelMeshManager,
         VoxelMap,
@@ -50,7 +49,6 @@ impl SimpleState for OnlyState {
             voxel_address: 1,
             dist_from_camera: None,
         });
-        world.insert(MeshMode::SurfaceNets);
 
         let map = load_voxel_map(&self.map_file).expect("Failed to load voxel map");
 

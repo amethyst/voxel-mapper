@@ -7,7 +7,7 @@ voxel worlds.
 
 ![Demo](/screenshots/demo.gif)
 
-Supports both smooth voxels and cube voxels.
+Supports both smooth voxels and cube voxels. Just edit the `MeshMode` resource.
 
 ![Demo](/screenshots/cubey.PNG)
 
