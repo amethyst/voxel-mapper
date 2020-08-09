@@ -3,7 +3,6 @@ use super::ThirdPersonControlConfig;
 use voxel_mapper::geometry::{Plane, PolarVector, UP};
 
 use amethyst::core::{
-    alga::general::RealField,
     approx::relative_eq,
     ecs::prelude::*,
     math::{Point3, Vector3},
@@ -52,20 +51,16 @@ impl ThirdPersonCameraState {
         self.target + self.radius * self.eye_vec.unit_vector()
     }
 
-    pub fn set_yaw(&mut self, yaw: f32) {
-        self.eye_vec.yaw = yaw % (2.0 * f32::pi());
-    }
-
     pub fn set_radius(&mut self, radius: f32, config: &ThirdPersonControlConfig) {
         self.radius = radius.max(config.min_radius).min(config.max_radius);
     }
 
     pub fn add_pitch(&mut self, dpitch: f32) {
-        self.eye_vec.set_pitch(*self.eye_vec.get_pitch() + dpitch)
+        self.eye_vec.set_pitch(self.eye_vec.get_pitch() + dpitch)
     }
 
     pub fn add_yaw(&mut self, dyaw: f32) {
-        self.set_yaw(self.eye_vec.yaw + dyaw)
+        self.eye_vec.set_yaw(self.eye_vec.get_yaw() + dyaw)
     }
 
     pub fn scale_radius(&mut self, s: f32, config: &ThirdPersonControlConfig) {
