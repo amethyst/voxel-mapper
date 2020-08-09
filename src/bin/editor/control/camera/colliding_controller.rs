@@ -8,14 +8,11 @@ use voxel_mapper::{
     voxel::VoxelMap,
 };
 
-use amethyst::core::{
-    approx::relative_eq,
-    math::{Point3, Vector3},
-};
+use amethyst::core::math::{Point3, Vector3};
 use ncollide3d::query::TOI;
 
-// BUG: camera can get through walls if the target is on a wall and camera rotated between the wall
-// and target
+// BUG: if the camera target gets too close to walls, or inside of a small enclosed space, it gets
+// really unstable; we should have some kind of escape routine
 
 const BALL_RADIUS: f32 = 0.5;
 
