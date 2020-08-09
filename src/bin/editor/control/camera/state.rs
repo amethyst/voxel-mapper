@@ -17,7 +17,6 @@ pub struct ThirdPersonCameraState {
     pub feet: Point3<f32>,
     /// What the camera is looking at.
     pub target: Point3<f32>,
-    pub target_height_over_feet: f32,
     /// A vector pointing from target to camera. Controlled by the player when rotating.
     pub eye_vec: PolarVector,
     /// The desired distance from camera to target. The actual distance may be less than this if the
@@ -33,25 +32,19 @@ impl Component for ThirdPersonCameraState {
 }
 
 impl ThirdPersonCameraState {
-    pub fn new(position: Point3<f32>, target: Point3<f32>, target_height_over_feet: f32) -> Self {
-        let feet = target - target_height_over_feet * Vector3::from(UP);
+    pub fn new(position: Point3<f32>, target: Point3<f32>) -> Self {
         let v = position - target;
         let mut eye_vec = PolarVector::default();
         eye_vec.set_vector(&v);
         let radius = v.norm();
 
         ThirdPersonCameraState {
-            feet,
+            feet: target,
             target,
-            target_height_over_feet,
             radius,
             eye_vec,
             actual_position: position,
         }
-    }
-
-    pub fn stand_up(&mut self) {
-        self.target = self.feet + self.target_height_over_feet * Vector3::from(UP);
     }
 
     pub fn get_desired_position(&self) -> Point3<f32> {

@@ -122,6 +122,14 @@ pub fn earliest_toi(i1: TOI<f32>, i2: TOI<f32>) -> TOI<f32> {
     }
 }
 
+pub fn latest_toi(i1: TOI<f32>, i2: TOI<f32>) -> TOI<f32> {
+    if i1.toi > i2.toi {
+        i1
+    } else {
+        i2
+    }
+}
+
 pub struct NearestBVRayCast<T, BV, F> {
     pub earliest_toi: f32,
     pub nearest_bv: Option<BV>,

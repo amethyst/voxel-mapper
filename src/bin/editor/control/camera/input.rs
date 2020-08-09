@@ -13,7 +13,9 @@ use amethyst::{
     window::ScreenDimensions,
     winit::MouseButton,
 };
+use serde::{Deserialize, Serialize};
 
+#[derive(Deserialize, Serialize)]
 pub struct InputConfig {
     pub rotate_sensitivity_x: f32,
     pub rotate_sensitivity_y: f32,

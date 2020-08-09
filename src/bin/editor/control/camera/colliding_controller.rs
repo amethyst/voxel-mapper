@@ -4,10 +4,14 @@ use voxel_mapper::{
     collision::{
         earliest_toi, extreme_ball_voxel_impact, floor_translation::translate_over_floor, VoxelBVT,
     },
+    geometry::UP,
     voxel::VoxelMap,
 };
 
-use amethyst::core::{approx::relative_eq, math::Point3};
+use amethyst::core::{
+    approx::relative_eq,
+    math::{Point3, Vector3},
+};
 use ncollide3d::query::TOI;
 
 // BUG: camera can get through walls if the target is on a wall and camera rotated between the wall
@@ -44,8 +48,7 @@ fn move_ball_until_collision(
     }
 }
 
-/// Resolves collisions to prevent occluding the target; it does this by casting a ray from the
-/// target to the desired camera position, stopping at the first collision.
+/// Resolves collisions to prevent occluding the target.
 pub struct CollidingController {
     colliding: bool,
 }
@@ -58,22 +61,29 @@ impl CollidingController {
     pub fn apply_input(
         &mut self,
         config: &ThirdPersonControlConfig,
-        cam_state: &ThirdPersonCameraState,
+        mut cam_state: ThirdPersonCameraState,
         input: &ProcessedInput,
         voxel_map: &VoxelMap,
         voxel_bvt: &VoxelBVT,
     ) -> ThirdPersonCameraState {
-        let mut cam_state = *cam_state;
+        // Figure out the where the camera feet are.
         cam_state.feet = translate_over_floor(
             &cam_state.feet,
             &input.feet_translation,
             &voxel_map.voxels,
             true,
         );
-        cam_state.stand_up();
+
+        // Figure out where the camera target is. For simplicity, we look just above the feet. A
+        // little separation from the ground helps avoid spurious collisions with the ground near
+        // the target.
+        cam_state.target = cam_state.feet + 1.0 * Vector3::from(UP);
+
+        // Rotate around the target.
         cam_state.add_yaw(input.delta_yaw);
         cam_state.add_pitch(input.delta_pitch);
 
+        // Scale the camera's distance from the target.
         if input.radius_scalar > 1.0 {
             // Don't move the camera if it's colliding.
             if !self.colliding {
@@ -88,13 +98,37 @@ impl CollidingController {
             cam_state.scale_radius(input.radius_scalar, config);
         }
 
+        let desired_position = cam_state.get_desired_position();
+
+        // Check for transition from not colliding to colliding.
+        if !self.colliding {
+            // If we cast a sphere from the previous position to the new desired position and there
+            // is a collision, then we assume that desired position is inside of a volume.
+            let (was_collision, _) = move_ball_until_collision(
+                &cam_state.actual_position,
+                &desired_position,
+                &voxel_bvt,
+                earliest_toi,
+                |toi| !relative_eq!(toi.toi, 0.0), // Don't collide starting at the target.
+            );
+            if !was_collision {
+                // All good!
+                cam_state.actual_position = desired_position;
+                return cam_state;
+            }
+        }
+
+        // Our desired position is colliding with something, so instead we cast a ball from the
+        // target to the desired position and stop at the first collision.
         let (was_collision, camera_after_collisions) = move_ball_until_collision(
             &cam_state.target,
-            &cam_state.get_desired_position(),
+            &desired_position,
             &voxel_bvt,
             earliest_toi,
             |toi| !relative_eq!(toi.toi, 0.0), // Don't collide starting at the target.
         );
+        // It is technically possible that we don't have a collision. We hope this case is rare and
+        // not problematic.
         self.colliding = was_collision;
         cam_state.actual_position = camera_after_collisions;
 

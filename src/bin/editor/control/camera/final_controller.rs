@@ -35,7 +35,7 @@ impl CameraController for FinalController {
     ) -> (Transform, ThirdPersonCameraState) {
         let new_camera_state = self.colliding_controller.apply_input(
             &self.control_config,
-            camera_state,
+            *camera_state,
             input,
             voxel_map,
             voxel_bvt,
