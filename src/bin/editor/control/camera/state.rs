@@ -4,12 +4,13 @@ use voxel_mapper::geometry::{Plane, PolarVector, UP};
 
 use amethyst::core::{
     alga::general::RealField,
+    approx::relative_eq,
     ecs::prelude::*,
     math::{Point3, Vector3},
     Transform,
 };
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct ThirdPersonCameraState {
     /// A point directly underneath the camera where floor collisions happen. The purpose of keeping
     /// the camera raised above the floor is to prevent undesired collisions between the camera and
@@ -51,14 +52,6 @@ impl ThirdPersonCameraState {
         self.target + self.radius * self.eye_vec.unit_vector()
     }
 
-    pub fn set_pitch(&mut self, pitch: f32) {
-        // Things can get weird if we are parallel to the UP vector.
-        let up_eps = 0.01;
-        self.eye_vec.pitch = pitch
-            .min(f32::pi() / 2.0 - up_eps)
-            .max(-f32::pi() / 2.0 + up_eps);
-    }
-
     pub fn set_yaw(&mut self, yaw: f32) {
         self.eye_vec.yaw = yaw % (2.0 * f32::pi());
     }
@@ -68,7 +61,7 @@ impl ThirdPersonCameraState {
     }
 
     pub fn add_pitch(&mut self, dpitch: f32) {
-        self.set_pitch(self.eye_vec.pitch + dpitch)
+        self.eye_vec.set_pitch(*self.eye_vec.get_pitch() + dpitch)
     }
 
     pub fn add_yaw(&mut self, dyaw: f32) {
@@ -81,14 +74,25 @@ impl ThirdPersonCameraState {
 
     pub fn look_at(&self) -> Point3<f32> {
         // Even though it's simpler, it's possible to get NaN in the transform if you look at the
-        // target. Make sure we look at a point that's never too close to the position.
+        // target when it's too close. Make sure we look at a point that's never too close to the
+        // position.
         self.actual_position - self.eye_vec.unit_vector()
+    }
+
+    fn looking_up(&self) -> bool {
+        relative_eq!(self.eye_vec.unit_vector().dot(&Vector3::from(UP)), -1.0)
     }
 
     pub fn transform(&self) -> Transform {
         let mut transform = Transform::default();
         *transform.translation_mut() = self.actual_position.coords;
         transform.face_towards(self.look_at().coords, Vector3::from(UP));
+
+        assert!(
+            !self.looking_up(),
+            "Your camera transform is fucked up. Your look direction {} is probably bad.",
+            self.eye_vec.unit_vector(),
+        );
 
         transform
     }

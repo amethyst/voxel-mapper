@@ -22,6 +22,7 @@ pub struct InputConfig {
     pub zoom_sensitivity: f32,
 }
 
+#[derive(Debug)]
 pub struct ProcessedInput {
     pub radius_scalar: f32,
     pub delta_yaw: f32,

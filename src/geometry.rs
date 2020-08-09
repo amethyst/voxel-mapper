@@ -20,6 +20,7 @@ pub struct Line {
     pub v: Vector3<f32>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Plane {
     pub p: Point3<f32>,
     pub n: Vector3<f32>,
@@ -144,10 +145,10 @@ pub fn vector_from_yaw_and_pitch(yaw: f32, pitch: f32) -> Vector3<f32> {
     Rotation3::from_axis_angle(&pitch_axis, pitch) * ray
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct PolarVector {
     pub yaw: f32,
-    pub pitch: f32,
+    pitch: f32, // protected so we don't make this point in the UP direction
 }
 
 impl PolarVector {
@@ -158,7 +159,19 @@ impl PolarVector {
     pub fn set_vector(&mut self, v: &Vector3<f32>) {
         let (yaw, pitch) = yaw_and_pitch_from_vector(v);
         self.yaw = yaw;
-        self.pitch = pitch;
+        self.set_pitch(pitch);
+    }
+
+    pub fn set_pitch(&mut self, pitch: f32) {
+        // Things can get weird if we are parallel to the UP vector.
+        let up_eps = 0.01;
+        self.pitch = pitch
+            .min(f32::pi() / 2.0 - up_eps)
+            .max(-f32::pi() / 2.0 + up_eps);
+    }
+
+    pub fn get_pitch(&self) -> &f32 {
+        &self.pitch
     }
 }
 

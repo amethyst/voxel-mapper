@@ -17,7 +17,7 @@ use ncollide3d::query::TOI;
 // BUG: camera can get through walls if the target is on a wall and camera rotated between the wall
 // and target
 
-const BALL_RADIUS: f32 = 0.2;
+const BALL_RADIUS: f32 = 0.5;
 
 fn move_ball_until_collision(
     start: &Point3<f32>,
@@ -31,7 +31,7 @@ fn move_ball_until_collision(
         *start,
         *end,
         &voxel_bvt,
-        0.01,
+        0.0,
         cmp_fn,
         predicate_fn,
     ) {
@@ -109,7 +109,7 @@ impl CollidingController {
                 &desired_position,
                 &voxel_bvt,
                 earliest_toi,
-                |toi| !relative_eq!(toi.toi, 0.0), // Don't collide starting at the target.
+                |_| true,
             );
             if !was_collision {
                 // All good!
@@ -125,7 +125,7 @@ impl CollidingController {
             &desired_position,
             &voxel_bvt,
             earliest_toi,
-            |toi| !relative_eq!(toi.toi, 0.0), // Don't collide starting at the target.
+            |_| true,
         );
         // It is technically possible that we don't have a collision. We hope this case is rare and
         // not problematic.

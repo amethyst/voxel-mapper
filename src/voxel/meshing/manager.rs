@@ -30,8 +30,13 @@ impl<'a> VoxelMeshManager<'a> {
         } = assets;
 
         for chunk_key in map.voxels.map.chunk_keys() {
-            let chunk_mesh = meshes.chunk_meshes.get(chunk_key).unwrap();
-            self.update_chunk_mesh_entities(chunk_key, Some(chunk_mesh.clone()), array_materials);
+            if let Some(chunk_mesh) = meshes.chunk_meshes.get(chunk_key) {
+                self.update_chunk_mesh_entities(
+                    chunk_key,
+                    Some(chunk_mesh.clone()),
+                    array_materials,
+                );
+            }
         }
     }
 
