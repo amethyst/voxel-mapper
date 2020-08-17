@@ -16,6 +16,9 @@ use ncollide3d::{
     shape::Ball,
 };
 
+#[cfg(feature = "profiler")]
+use thread_profiler::profile_scope;
+
 /// Returns the impact between the given ball and any voxel in the BVT, as chosen by `cmp_fn`. The
 /// returned TOI will have volume1 being the ball and volume2 being the voxel, and its toi field
 /// value is in the range [0.0, 1.0].
@@ -31,6 +34,9 @@ pub fn extreme_ball_voxel_impact(
     if start_pos == end_pos {
         return None;
     }
+
+    #[cfg(feature = "profiler")]
+    profile_scope!("extreme_ball_voxel_impact");
 
     let ball = Ball::new(ball_radius);
     let ball_start_tfm = Isometry3::from_parts(
@@ -101,6 +107,9 @@ where
     BV: BoundingVolume<f32> + RayCast<f32> + Clone,
     T: Clone,
 {
+    #[cfg(feature = "profiler")]
+    profile_scope!("nearest_bounding_volume_ray_cast");
+
     let mut visitor = NearestBVRayCast::new(*ray, predicate_fn);
     bvh.visit(&mut visitor);
 

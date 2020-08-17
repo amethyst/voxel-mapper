@@ -2,7 +2,7 @@ use crate::voxel::{editor::EditVoxelsRequest, Voxel, VoxelMap};
 
 use amethyst::{core::ecs::prelude::*, shrev::EventChannel};
 use ilattice3 as lat;
-use ilattice3::VecLatticeMap;
+use ilattice3::{Chunk, VecLatticeMap};
 use std::collections::{HashMap, HashSet};
 
 #[cfg(feature = "profiler")]
@@ -69,7 +69,9 @@ impl<'a> System<'a> for VoxelDoubleBufferingSystem {
         } = edits.take().unwrap();
         let mut new_dirty_chunks = HashSet::new();
         for (chunk_key, chunk_voxels) in edited_chunks.into_iter() {
-            map.voxels.map.insert_chunk(chunk_key, chunk_voxels);
+            map.voxels
+                .map
+                .insert_chunk(chunk_key, Chunk::with_map(chunk_voxels));
             new_dirty_chunks.insert(chunk_key);
         }
         new_dirty_chunks.extend(neighbor_chunks.into_iter());

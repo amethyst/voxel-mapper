@@ -16,7 +16,7 @@ use amethyst::{
     renderer::formats::mtl::MaterialPrefab,
 };
 use ilattice3 as lat;
-use ilattice3::{closest_normal, ChunkedPaletteLatticeMap, GetPaletteAddress, IsEmpty};
+use ilattice3::{normal::closest_normal, ChunkedPaletteLatticeMap, GetPaletteAddress, IsEmpty};
 use ilattice3_mesh::GreedyQuadsVoxel;
 use ncollide3d::{bounding_volume::AABB, shape::Cuboid};
 use serde::{Deserialize, Serialize};

@@ -10,10 +10,11 @@ use crate::{
 use amethyst::core::ecs::prelude::*;
 use amethyst::renderer::rendy::mesh::{Color, Normal, Position};
 use ilattice3 as lat;
-use ilattice3::{prelude::*, GetPaletteAddress, HasIndexer, Indexer, LatticeVoxels, CUBE_CORNERS};
+use ilattice3::{prelude::*, GetPaletteAddress, LatticeVoxels};
 use ilattice3_mesh::{
-    greedy_quads, make_pos_norm_material_mesh_from_quads, surface_nets, PosNormMaterialMesh,
-    SurfaceNetsOutput, SurfaceNetsVoxel,
+    calculate_material_weights, greedy_quads, make_pos_norm_material_mesh_from_quads, surface_nets,
+    MaterialVoxel, PosNormMaterialMesh, SignedDistanceVoxel, SurfaceNetsOutput,
+    MATERIAL_WEIGHT_TABLE,
 };
 use std::collections::HashMap;
 
@@ -58,8 +59,12 @@ where
         return None;
     }
 
-    let vertex_material_weights =
-        calculate_material_weights(&LatticeVoxelsMeshInfo(chunk_and_boundary), &surface_points);
+    let vertex_material_weights = {
+        #[cfg(feature = "profiler")]
+        profile_scope!("material_weights");
+
+        calculate_material_weights(&LatticeVoxelsMeshInfo(chunk_and_boundary), &surface_points)
+    };
 
     let positions = positions.clone().into_iter().map(|p| Position(p)).collect();
     let colors = vertex_material_weights
@@ -101,7 +106,7 @@ where
 
 struct SignedDistance(f32);
 
-impl SurfaceNetsVoxel for SignedDistance {
+impl SignedDistanceVoxel for SignedDistance {
     fn distance(&self) -> f32 {
         self.0
     }
@@ -140,55 +145,21 @@ impl<'a, I> GetExtent for LatticeVoxelsMeshInfo<'a, I> {
     }
 }
 
-// The current vertex format is limited to 4 numbers for material weights.
-const WEIGHT_TABLE: [[f32; 4]; 4] = [
-    [1.0, 0.0, 0.0, 0.0],
-    [0.0, 1.0, 0.0, 0.0],
-    [0.0, 0.0, 1.0, 0.0],
-    [0.0, 0.0, 0.0, 1.0],
-];
-
-/// Uses a kernel to average the adjacent materials for each surface point.
-fn calculate_material_weights<V, I>(voxels: &V, surface_points: &[lat::Point]) -> Vec<[f32; 4]>
-where
-    V: GetExtent + GetLinear<Data = VoxelMeshInfo> + HasIndexer<Indexer = I>,
-    I: Indexer,
-{
-    #[cfg(feature = "profiler")]
-    profile_scope!("material_weights");
-
-    let sup = voxels.get_extent().get_local_supremum();
-
-    // Precompute the offsets for cube corners, like we do in surface nets.
-    let mut linear_offsets = [0; 8];
-    for (i, offset) in CUBE_CORNERS.iter().enumerate() {
-        linear_offsets[i] = I::index_from_local_point(sup, offset);
-    }
-
-    let mut material_weights = vec![[0.0; 4]; surface_points.len()];
-
-    for (i, p) in surface_points.iter().enumerate() {
-        let p_linear = I::index_from_local_point(sup, p);
-        let w = &mut material_weights[i];
-        for offset in linear_offsets.iter() {
-            let q_linear = p_linear + offset;
-            let voxel = voxels.get_linear(q_linear);
-            if voxel.distance < 0.0 {
-                let material_w = WEIGHT_TABLE[voxel.material_index.0 as usize];
-                w[0] += material_w[0];
-                w[1] += material_w[1];
-                w[2] += material_w[2];
-                w[3] += material_w[3];
-            }
-        }
-    }
-
-    material_weights
-}
-
 struct VoxelMeshInfo {
     distance: f32,
     material_index: ArrayMaterialIndex,
+}
+
+impl SignedDistanceVoxel for VoxelMeshInfo {
+    fn distance(&self) -> f32 {
+        self.distance
+    }
+}
+
+impl MaterialVoxel for VoxelMeshInfo {
+    fn material_index(&self) -> usize {
+        self.material_index.0 as usize
+    }
 }
 
 pub fn generate_mesh_vertices_with_greedy_quads<V, I>(
@@ -221,7 +192,7 @@ where
 
     let vertex_material_weights = materials
         .into_iter()
-        .map(|m: ArrayMaterialIndex| WEIGHT_TABLE[m.0 as usize]);
+        .map(|m: ArrayMaterialIndex| MATERIAL_WEIGHT_TABLE[m.0 as usize]);
 
     let positions = positions.clone().into_iter().map(|p| Position(p)).collect();
     let colors = vertex_material_weights.map(|w| Color(w)).collect();

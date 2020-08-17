@@ -20,6 +20,12 @@ pub struct Line {
     pub v: Vector3<f32>,
 }
 
+impl Line {
+    pub fn from_endpoints(p1: Point3<f32>, p2: Point3<f32>) -> Self {
+        Self { p: p1, v: p2 - p1 }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Plane {
     pub p: Point3<f32>,
@@ -48,6 +54,14 @@ pub fn line_plane_intersection(l: &Line, p: &Plane) -> LinePlaneIntersection {
     } else {
         LinePlaneIntersection::IntersectionPoint(l.p + l.v * (lp_dot_n / lv_dot_n))
     }
+}
+
+pub fn project_point_onto_line(p: &Point3<f32>, line: &Line) -> Point3<f32> {
+    let p_v = p - line.p;
+    let line_v_unit = line.v.normalize();
+    let proj = p_v.dot(&line_v_unit);
+
+    line.p + proj * line_v_unit
 }
 
 pub struct Sphere {

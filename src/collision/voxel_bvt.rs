@@ -1,9 +1,7 @@
 use crate::voxel::{voxel_aabb, Voxel, VoxelInfo};
 
 use ilattice3 as lat;
-use ilattice3::{
-    find_surface_voxels, prelude::*, ChunkedPaletteLatticeMap, Extent, Indexer, IsEmpty,
-};
+use ilattice3::{algos::find_surface_voxels, prelude::*, ChunkedPaletteLatticeMap, Extent};
 use ncollide3d::{
     bounding_volume::{BoundingVolume, AABB},
     partitioning::{DBVTLeaf, DBVTNodeId, BVH, DBVT},

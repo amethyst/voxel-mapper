@@ -2,7 +2,7 @@ use crate::voxel::{double_buffer::EditedChunksBackBuffer, encode_distance, Voxel
 
 use amethyst::{core::ecs::prelude::*, derive::SystemDesc, shrev::EventChannel};
 use ilattice3 as lat;
-use ilattice3::{prelude::*, VecLatticeMap, FACE_ADJACENT_OFFSETS};
+use ilattice3::{point::FACE_ADJACENT_OFFSETS, prelude::*, VecLatticeMap};
 use std::collections::HashMap;
 
 #[cfg(feature = "profiler")]
@@ -66,7 +66,7 @@ impl<'a> System<'a> for VoxelEditorSystem {
                 let chunk_key = map.voxels.map.chunk_key(p);
                 let chunk = edited_chunks.entry(chunk_key).or_insert_with(|| {
                     if let Some(c) = map.voxels.map.get_chunk(&chunk_key) {
-                        c.clone()
+                        c.map.clone()
                     } else {
                         VecLatticeMap::fill(
                             map.voxels.map.extent_for_chunk_key(&chunk_key),
