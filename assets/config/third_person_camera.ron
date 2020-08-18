@@ -1,0 +1,12 @@
+(
+    input: (
+        rotate_sensitivity_x: 0.005,
+        rotate_sensitivity_y: 0.005,
+        zoom_sensitivity: 0.1,
+    ),
+    control: (
+        min_radius: 1.0,
+        max_radius: 100.0,
+        smoothing_weight: 0.9,
+    ),
+)
