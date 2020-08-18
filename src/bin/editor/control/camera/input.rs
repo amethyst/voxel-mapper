@@ -9,7 +9,7 @@ use amethyst::{
         Transform,
     },
     input::{BindingTypes, InputEvent, InputHandler, ScrollDirection},
-    renderer::camera::Projection,
+    renderer::camera::Camera,
     window::ScreenDimensions,
     winit::MouseButton,
 };
@@ -75,8 +75,8 @@ impl InputProcessor {
         input: &InputHandler<B>,
         events: &[InputEvent<B>],
         floor_plane: &Plane,
+        camera: &Camera,
         camera_tfm: &Transform,
-        camera_proj: &Projection,
         screen_dims: &ScreenDimensions,
     ) -> ProcessedInput
     where
@@ -100,8 +100,8 @@ impl InputProcessor {
             if input.mouse_button_is_down(MouseButton::Left) {
                 feet_translation = floor_drag_translation(
                     floor_plane,
+                    camera,
                     camera_tfm,
-                    camera_proj,
                     screen_dims,
                     cursor_pos,
                     self.prev_cursor_pos,
@@ -122,14 +122,14 @@ impl InputProcessor {
 
 fn floor_drag_translation(
     floor_plane: &Plane,
+    camera: &Camera,
     camera_tfm: &Transform,
-    camera_proj: &Projection,
     dims: &ScreenDimensions,
     cursor_pos: Point2<f32>,
     prev_cursor_pos: Point2<f32>,
 ) -> Vector3<f32> {
-    let prev_screen_ray = screen_ray(camera_tfm, camera_proj, dims, prev_cursor_pos);
-    let screen_ray = screen_ray(camera_tfm, camera_proj, dims, cursor_pos);
+    let prev_screen_ray = screen_ray(camera, camera_tfm, dims, prev_cursor_pos);
+    let screen_ray = screen_ray(camera, camera_tfm, dims, cursor_pos);
 
     _floor_drag_translation(floor_plane, &prev_screen_ray, &screen_ray)
 }

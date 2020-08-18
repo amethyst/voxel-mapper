@@ -34,9 +34,7 @@ impl<'a> CameraData<'a> {
             Some(x) => x,
             None => return None,
         };
-        let ray = cam
-            .projection()
-            .screen_ray(screen_pos, screen_diag, cam_tfm);
+        let ray = cam.screen_ray(screen_pos, screen_diag, cam_tfm);
 
         Some(Ray::new(ray.origin, ray.direction))
     }

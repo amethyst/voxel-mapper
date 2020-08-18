@@ -125,8 +125,8 @@ where
                 &self.input_handler,
                 events,
                 &tpc_state.floor_plane(),
+                cam,
                 cam_tfm,
-                cam.projection(),
                 &self.screen_dims,
             );
             let CameraControllerComponent(ctrlr) = ctrlr;

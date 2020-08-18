@@ -6,7 +6,7 @@ use amethyst::{
         num::Zero,
         Transform,
     },
-    renderer::{camera::Projection, rendy::mesh::Position},
+    renderer::{camera::Camera, rendy::mesh::Position},
     window::ScreenDimensions,
 };
 use ordered_float::NotNan;
@@ -199,12 +199,12 @@ impl PolarVector {
 }
 
 pub fn screen_ray(
+    camera: &Camera,
     camera_tfm: &Transform,
-    camera_proj: &Projection,
     dims: &ScreenDimensions,
     cursor_pos: Point2<f32>,
 ) -> Line {
-    let screen_ray = camera_proj.screen_ray(cursor_pos, dims.diagonal(), camera_tfm);
+    let screen_ray = camera.screen_ray(cursor_pos, dims.diagonal(), camera_tfm);
 
     Line {
         p: screen_ray.origin,
