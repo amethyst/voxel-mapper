@@ -108,8 +108,11 @@ where
 
 /// Moves a point along a translation vector while doing collision resolution with the floor voxels.
 /// The point may only travel above floor voxels, and it will jump on top or fall down onto floor
-/// voxels as it crosses voxel boundaries. If the point reaches a vertical column that contains no
-/// floor voxels, then it stops.
+/// voxels as it crosses voxel boundaries. There are stopping conditions that prevent the point from
+/// moving further, including:
+///
+///   1.
+///
 pub fn translate_over_floor<V, T>(
     start: &Point3<f32>,
     velocity: &Vector3<f32>,
@@ -137,8 +140,8 @@ where
     let mut height_delta = 0;
     for ((t1, p1), (_, p2)) in boundary_points.iter().tuple_windows() {
         // Since we have points on voxel boundaries, it's hard to say what voxel we're leaving or
-        // entering without seeing the delta. At least we know the midpoint between boundaries will
-        // fall into the voxel we are entering.
+        // entering, but we know the midpoint between boundaries will fall into the voxel we are
+        // entering.
         let midpoint = (p1 + p2.coords) / 2.0;
         let midpoint_voxel = voxel_containing_point(&midpoint);
 

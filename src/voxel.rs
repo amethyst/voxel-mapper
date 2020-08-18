@@ -7,6 +7,7 @@ pub mod double_buffer;
 pub mod editor;
 pub mod map_file;
 pub mod meshing;
+pub mod search;
 
 use meshing::loader::VoxelMeshes;
 
