@@ -16,6 +16,8 @@ Supports both smooth voxels and cube voxels. Just edit the `MeshMode` resource.
 To build and run with the example assets:
 
 ```
+run/download_assets.sh
+
 GRAPHICS_BACKEND=metal
 cargo run --bin editor --release --features amethyst/$GRAPHICS_BACKEND,amethyst/no-slow-safety-checks -- assets/maps/example_map.ron
 ```
