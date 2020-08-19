@@ -125,7 +125,7 @@ where
                 &self.input_handler,
                 events,
                 &tpc_state.floor_plane(),
-                cam,
+                cam.projection(),
                 cam_tfm,
                 &self.screen_dims,
             );
