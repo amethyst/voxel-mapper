@@ -87,7 +87,7 @@ where
 
 const MAX_PROBE_ITERS: usize = 10;
 
-// BUG: should check contiguous floor voxels
+// POTENTIAL BUG: can skip over non-floor voxels in a column
 fn vertical_probe<V, T>(dir: i32, start: &lat::Point, voxels: &V) -> Option<i32>
 where
     V: MaybeGetWorldRef<Data = T>,
@@ -111,7 +111,8 @@ where
 /// voxels as it crosses voxel boundaries. There are stopping conditions that prevent the point from
 /// moving further, including:
 ///
-///   1.
+///   1. Encountering a tall column of solid voxels
+///   2. TODO: Tightly enclosed spaces that make it hard for camera collisions
 ///
 pub fn translate_over_floor<V, T>(
     start: &Point3<f32>,
