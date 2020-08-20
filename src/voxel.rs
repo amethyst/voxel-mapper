@@ -17,7 +17,9 @@ use amethyst::{
     renderer::formats::mtl::MaterialPrefab,
 };
 use ilattice3 as lat;
-use ilattice3::{normal::closest_normal, ChunkedPaletteLatticeMap, GetPaletteAddress, IsEmpty};
+use ilattice3::{
+    normal::closest_normal, prelude::*, ChunkedPaletteLatticeMap, GetPaletteAddress, IsEmpty,
+};
 use ilattice3_mesh::GreedyQuadsVoxel;
 use ncollide3d::{bounding_volume::AABB, shape::Cuboid};
 use serde::{Deserialize, Serialize};
@@ -100,6 +102,16 @@ pub fn decode_distance(encoded: i8) -> f32 {
 pub struct VoxelMap {
     pub palette_assets: VoxelPaletteAssets,
     pub voxels: ChunkedPaletteLatticeMap<VoxelInfo, Voxel>,
+}
+
+impl VoxelMap {
+    pub fn voxel_is_empty(&self, p: &lat::Point) -> bool {
+        if let Some(v) = self.voxels.maybe_get_world_ref(p) {
+            v.is_empty()
+        } else {
+            true
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]

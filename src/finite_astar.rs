@@ -9,7 +9,7 @@ use std::collections::BinaryHeap;
 use std::hash::Hash;
 
 /// A*, but you can set `max_iterations` to get the best path found before bailing out. This will be
-/// the path with the least heuristic score, or estimated closeness. Returns `true` iff the path
+/// the path with the best heuristic score, or estimated closeness. Returns `true` iff the path
 /// reaches the success condition.
 pub fn finite_astar<N, C, FN, IN, FH, FS>(
     start: &N,

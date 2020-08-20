@@ -15,6 +15,13 @@ pub fn find_path_through_empty_voxels(
     predicate: impl Fn(&Point) -> bool,
     max_iterations: usize,
 ) -> (bool, Vec<lat::Point>) {
+    if let Some(v) = map.voxels.maybe_get_world_ref(start) {
+        if !v.is_empty() {
+            log::warn!("Starting in non-empty voxel");
+            return (false, vec![]);
+        }
+    }
+
     #[cfg(feature = "profiler")]
     profile_scope!("find_path_through_empty_voxels");
 
@@ -27,12 +34,7 @@ pub fn find_path_through_empty_voxels(
                 if !predicate(&s) {
                     return None;
                 }
-                if let Some(v) = map.voxels.maybe_get_world_ref(&s) {
-                    if v.is_empty() {
-                        return Some((s, 1));
-                    }
-                } else {
-                    // Non-existent is considered empty.
+                if map.voxel_is_empty(&s) {
                     return Some((s, 1));
                 }
 

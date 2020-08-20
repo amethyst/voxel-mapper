@@ -10,7 +10,6 @@ use voxel_mapper::{
 
 use amethyst::core::math::{Point3, Vector3};
 use ilattice3 as lat;
-use ilattice3::{prelude::*, IsEmpty};
 use ncollide3d::query::TOI;
 
 #[cfg(feature = "profiler")]
@@ -21,6 +20,25 @@ use thread_profiler::profile_scope;
 // distance from walls in the floor_translation module
 
 const BALL_RADIUS: f32 = 0.5;
+
+const PATH_PERCENTAGE: f32 = 0.666;
+const PATH_PERCENTAGE_SQ: f32 = PATH_PERCENTAGE * PATH_PERCENTAGE;
+
+const MAX_ORTHOGONAL_DIST: f32 = 6.0;
+const MAX_ORTHOGONAL_DIST_SQ: f32 = MAX_ORTHOGONAL_DIST * MAX_ORTHOGONAL_DIST;
+
+const NOT_WORTH_SEARCHING_DIST: f32 = 4.0;
+const NOT_WORTH_SEARCHING_DIST_SQ: f32 = NOT_WORTH_SEARCHING_DIST * NOT_WORTH_SEARCHING_DIST;
+
+const MAX_SEARCH_ITERATIONS: usize = 200;
+
+// Correlated with the MAX_ORTHOGONAL_DIST.
+const PROJECTION_CONNECTION_MAX_ITERATIONS: usize = 10;
+
+const CAMERA_LOCK_THRESHOLD: f32 = 2.0;
+const CAMERA_LOCK_THRESHOLD_SQ: f32 = CAMERA_LOCK_THRESHOLD * CAMERA_LOCK_THRESHOLD;
+
+const CAMERA_LOCK_RADIUS: f32 = 0.8;
 
 fn move_ball_until_collision(
     start: &Point3<f32>,
@@ -54,11 +72,15 @@ fn move_ball_until_collision(
 /// Resolves collisions to prevent occluding the target.
 pub struct CollidingController {
     colliding: bool,
+    last_empty_feet_point: Option<lat::Point>,
 }
 
 impl CollidingController {
     pub fn new() -> Self {
-        Self { colliding: false }
+        Self {
+            colliding: false,
+            last_empty_feet_point: None,
+        }
     }
 
     pub fn apply_input(
@@ -69,8 +91,6 @@ impl CollidingController {
         voxel_map: &VoxelMap,
         voxel_bvt: &VoxelBVT,
     ) -> ThirdPersonCameraState {
-        let prev_pos = cam_state.actual_position;
-
         // Figure out the where the camera feet are.
         cam_state.feet = translate_over_floor(
             &cam_state.feet,
@@ -103,40 +123,19 @@ impl CollidingController {
 
         let desired_position = cam_state.get_desired_position();
 
-        // Check for transition between colliding states.
-        if self.colliding {
-            // See if the target has become unobstructed.
-            let (was_collision, _) = move_ball_until_collision(
-                &cam_state.target,
-                &desired_position,
-                voxel_bvt,
-                earliest_toi,
-                |_| true,
-            );
-            self.colliding = was_collision;
-        } else {
-            // If we cast a sphere from the previous position to the new desired position and there
-            // is a collision, then we assume that desired position is inside of a volume.
-            let (was_collision, _) = move_ball_until_collision(
-                &cam_state.actual_position,
-                &desired_position,
-                voxel_bvt,
-                earliest_toi,
-                |_| true,
-            );
-            self.colliding = was_collision;
-        }
+        // Choose an empty voxel to start our search path.
+        let feet_voxel = voxel_containing_point(&cam_state.feet);
+        self.set_last_empty_feet_voxel(voxel_map, feet_voxel);
+        let empty_path_start = self.last_empty_feet_point.as_ref().unwrap();
 
-        if !self.colliding {
-            // All good!
-            cam_state.actual_position = desired_position;
-            return cam_state;
-        }
-
-        // We're in the colliding state, so instead we cast a ball to the desired position and stop
-        // at the first collision.
-        let sphere_cast_start =
-            find_start_of_sphere_cast(cam_state.target, prev_pos, desired_position, voxel_map);
+        // We always try to find a short path around voxels that occlude the target before doing
+        // the sphere cast.
+        let sphere_cast_start = find_start_of_sphere_cast(
+            empty_path_start,
+            cam_state.target,
+            desired_position,
+            voxel_map,
+        );
         let (was_collision, camera_after_collisions) = move_ball_until_collision(
             &sphere_cast_start,
             &desired_position,
@@ -146,26 +145,39 @@ impl CollidingController {
         );
         self.colliding = was_collision;
 
-        if (camera_after_collisions - cam_state.target).norm_squared() < 4.0 {
+        if (camera_after_collisions - cam_state.target).norm_squared() < CAMERA_LOCK_THRESHOLD_SQ {
             // If we're really close to the target, wonky stuff can happen with collisions, so just
             // lock into a tight sphere.
-            cam_state.actual_position = cam_state.get_position_at_radius(0.8);
+            cam_state.actual_position = cam_state.get_position_at_radius(CAMERA_LOCK_RADIUS);
         } else {
             cam_state.actual_position = camera_after_collisions;
         }
 
         cam_state
     }
+
+    fn set_last_empty_feet_voxel(&mut self, voxel_map: &VoxelMap, new_feet: lat::Point) {
+        // HACK: really, the feet should never be in a non-empty voxel
+        if self.last_empty_feet_point.is_some() {
+            if voxel_map.voxel_is_empty(&new_feet) {
+                self.last_empty_feet_point = Some(new_feet);
+            }
+        } else {
+            self.last_empty_feet_point = Some(new_feet);
+        }
+    }
 }
 
 /// Try to find the ideal location to cast a sphere from.
 fn find_start_of_sphere_cast(
+    path_start: &lat::Point,
     target: Point3<f32>,
-    prev_camera: Point3<f32>,
     camera: Point3<f32>,
     map: &VoxelMap,
 ) -> Point3<f32> {
-    if (target - camera).norm_squared() < 16.0 {
+    // If we're already pretty close to the camera, there's not much use in finding a path around
+    // occluders.
+    if (target - camera).norm_squared() < NOT_WORTH_SEARCHING_DIST_SQ {
         return target;
     }
 
@@ -173,9 +185,9 @@ fn find_start_of_sphere_cast(
     profile_scope!("find_start_of_sphere_cast");
 
     let eye_ray = Line::from_endpoints(target, camera);
+    let target_to_camera_dist_sq = eye_ray.v.norm_squared();
 
     // Graph search away from the target to get as close to the camera as possible.
-    let path_start = voxel_containing_point(&target);
     let path_finish = voxel_containing_point(&camera);
     let prevent_stray = |p: &lat::Point| {
         let LatPoint3(p) = (*p).into();
@@ -183,24 +195,38 @@ fn find_start_of_sphere_cast(
         let p_rej = p - p_proj;
 
         // Don't let the search go too far in directions orthogonal to the eye vector.
-        p_rej.norm_squared() < 100.0
+        if p_rej.norm_squared() > MAX_ORTHOGONAL_DIST_SQ {
+            return false;
+        }
+
+        // Bound how far the search can get from the target in terms of the desired camera position.
+        if (p - target).norm_squared() > PATH_PERCENTAGE_SQ * target_to_camera_dist_sq {
+            return false;
+        }
+
+        true
     };
-    const MAX_ITERATIONS: usize = 200;
     let (_reached_finish, path) = find_path_through_empty_voxels(
-        &path_start,
+        path_start,
         &path_finish,
         map,
         prevent_stray,
-        MAX_ITERATIONS,
+        MAX_SEARCH_ITERATIONS,
     );
 
-    // Use the previous camera position, since it's a good heuristic for how far the sphere cast
-    // should expect to go if there aren't any new collisions.
-    let target_camera_dist_sq = (target - prev_camera).norm_squared();
+    // Figure out, at a minimum, how far along the path we want to start the sphere cast.
+    let path_end = if let Some(end) = path.last() {
+        let LatPoint3(end_float) = (*end).into();
+
+        project_point_onto_line(&end_float, &eye_ray)
+    } else {
+        // Path is empty.
+        return target;
+    };
+    let target_separation_sq = PATH_PERCENTAGE_SQ * (target - path_end).norm_squared();
 
     // Choose a point on the path as the starting point for the sphere cast. It should be some
     // minimum distance from the target along the ray subspace, and it should be in an empty voxel.
-    let target_separation_sq = 0.666 * 0.666 * target_camera_dist_sq;
     for p in path.iter() {
         let LatPoint3(p_float) = (*p).into();
         let proj_p = project_point_onto_line(&p_float, &eye_ray);
@@ -208,14 +234,17 @@ fn find_start_of_sphere_cast(
             continue;
         }
         let voxel_proj_p = voxel_containing_point(&proj_p);
-        if let Some(v) = map.voxels.maybe_get_world_ref(&voxel_proj_p) {
-            if v.is_empty() {
-                // Projection must still be path-connected to empty space.
-                let (reached_finish, _) =
-                    find_path_through_empty_voxels(&voxel_proj_p, p, map, |_| true, 10);
-                if reached_finish {
-                    return proj_p;
-                }
+        if map.voxel_is_empty(&voxel_proj_p) {
+            // Projection must still be path-connected to empty space.
+            let (reached_finish, _) = find_path_through_empty_voxels(
+                &voxel_proj_p,
+                p,
+                map,
+                |_| true,
+                PROJECTION_CONNECTION_MAX_ITERATIONS,
+            );
+            if reached_finish {
+                return proj_p;
             }
         }
     }
