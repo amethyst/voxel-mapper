@@ -31,10 +31,7 @@ pub fn find_path_through_empty_voxels(
             .iter()
             .map(|offset| *p + *offset)
             .filter_map(|s| {
-                if !predicate(&s) {
-                    return None;
-                }
-                if map.voxel_is_empty(&s) {
+                if predicate(&s) && map.voxel_is_empty(&s) {
                     return Some((s, 1));
                 }
 
