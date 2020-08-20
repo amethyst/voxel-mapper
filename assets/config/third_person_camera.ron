@@ -8,5 +8,15 @@
         min_radius: 1.0,
         max_radius: 100.0,
         smoothing_weight: 0.9,
+        collision: (
+            ball_radius: 1.0,
+            search_path_selection_range: (0.5, 0.9),
+            max_orthogonal_dist: 6.0,
+            not_worth_searching_dist: 4.0,
+            max_search_iterations: 200,
+            projection_connection_max_iterations: 10,
+            camera_lock_threshold: 2.0,
+            camera_lock_radius: 0.8,
+        )
     ),
 )

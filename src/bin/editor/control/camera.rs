@@ -10,6 +10,8 @@ pub use self::final_controller::FinalController;
 pub use self::input::{InputConfig, InputProcessor, ProcessedInput};
 pub use self::state::ThirdPersonCameraState;
 
+use self::colliding_controller::CameraCollisionConfig;
+
 use voxel_mapper::{collision::VoxelBVT, voxel::VoxelMap};
 
 use amethyst::{
@@ -72,6 +74,7 @@ pub struct ThirdPersonControlConfig {
     pub min_radius: f32,
     pub max_radius: f32,
     pub smoothing_weight: f32,
+    pub collision: CameraCollisionConfig,
 }
 
 pub trait CameraController {

@@ -11,6 +11,7 @@ use voxel_mapper::{
 use amethyst::core::math::{Point3, Vector3};
 use ilattice3 as lat;
 use ncollide3d::query::TOI;
+use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "profiler")]
 use thread_profiler::profile_scope;
@@ -19,28 +20,36 @@ use thread_profiler::profile_scope;
 // space; this could be fixed by pushing the feet away from walls or always keeping some minimum
 // distance from walls in the floor_translation module
 
-const BALL_RADIUS: f32 = 0.5;
-
-const PATH_PERCENTAGE: f32 = 0.666;
-const PATH_PERCENTAGE_SQ: f32 = PATH_PERCENTAGE * PATH_PERCENTAGE;
-
-const MAX_ORTHOGONAL_DIST: f32 = 6.0;
-const MAX_ORTHOGONAL_DIST_SQ: f32 = MAX_ORTHOGONAL_DIST * MAX_ORTHOGONAL_DIST;
-
-const NOT_WORTH_SEARCHING_DIST: f32 = 4.0;
-const NOT_WORTH_SEARCHING_DIST_SQ: f32 = NOT_WORTH_SEARCHING_DIST * NOT_WORTH_SEARCHING_DIST;
-
-const MAX_SEARCH_ITERATIONS: usize = 200;
-
-// Correlated with the MAX_ORTHOGONAL_DIST.
-const PROJECTION_CONNECTION_MAX_ITERATIONS: usize = 10;
-
-const CAMERA_LOCK_THRESHOLD: f32 = 2.0;
-const CAMERA_LOCK_THRESHOLD_SQ: f32 = CAMERA_LOCK_THRESHOLD * CAMERA_LOCK_THRESHOLD;
-
-const CAMERA_LOCK_RADIUS: f32 = 0.8;
+/// Constant parameters for tuning the camera collision controller.
+#[derive(Deserialize, Serialize)]
+pub struct CameraCollisionConfig {
+    /// Size of the collidable ball surrounding the camera.
+    ball_radius: f32,
+    /// When choosing a point on the camera search path, this gives us an allowable range in
+    /// fraction of the total path length (values in [0, 1]).
+    search_path_selection_range: (f32, f32),
+    /// The maximum distance that the camera search can stray from the eye line. This determines
+    /// how wide of an object the search can get around.
+    max_orthogonal_dist: f32,
+    /// The cutoff distance below which we don't event try doing a camera search.
+    not_worth_searching_dist: f32,
+    /// The maximum number of A* iterations we will do in the camera search. This is important so
+    /// the search stops in a reasonable time if it can't connect with the camera.
+    max_search_iterations: usize,
+    /// When projecting a point on the search path onto the eye line, we need to make sure it's
+    /// still path-connected to the same empty space (to avoid going through solid boundaries). We
+    /// use another A* search to determine the connectivity, and this is the max # of iterations.
+    /// Correlated with the `max_orthogonal_dist`.
+    projection_connection_max_iterations: usize,
+    /// If the distance to the camera target falls below this threshold, the camera locks into a
+    /// fixed distance from the target.
+    camera_lock_threshold: f32,
+    /// When the camera is locked to a fixed distance from the target, this is that distance.
+    camera_lock_radius: f32,
+}
 
 fn move_ball_until_collision(
+    ball_radius: f32,
     start: &Point3<f32>,
     end: &Point3<f32>,
     voxel_bvt: &VoxelBVT,
@@ -48,7 +57,7 @@ fn move_ball_until_collision(
     predicate_fn: impl Fn(&TOI<f32>) -> bool,
 ) -> (bool, Point3<f32>) {
     if let Some(impact) = extreme_ball_voxel_impact(
-        BALL_RADIUS,
+        ball_radius,
         *start,
         *end,
         &voxel_bvt,
@@ -128,15 +137,19 @@ impl CollidingController {
         self.set_last_empty_feet_voxel(voxel_map, feet_voxel);
         let empty_path_start = self.last_empty_feet_point.as_ref().unwrap();
 
+        let config = &config.collision;
+
         // We always try to find a short path around voxels that occlude the target before doing
         // the sphere cast.
         let sphere_cast_start = find_start_of_sphere_cast(
+            config,
             empty_path_start,
             cam_state.target,
             desired_position,
             voxel_map,
         );
         let (was_collision, camera_after_collisions) = move_ball_until_collision(
+            config.ball_radius,
             &sphere_cast_start,
             &desired_position,
             voxel_bvt,
@@ -145,10 +158,12 @@ impl CollidingController {
         );
         self.colliding = was_collision;
 
-        if (camera_after_collisions - cam_state.target).norm_squared() < CAMERA_LOCK_THRESHOLD_SQ {
+        if (camera_after_collisions - cam_state.target).norm_squared()
+            < config.camera_lock_threshold.powi(2)
+        {
             // If we're really close to the target, wonky stuff can happen with collisions, so just
             // lock into a tight sphere.
-            cam_state.actual_position = cam_state.get_position_at_radius(CAMERA_LOCK_RADIUS);
+            cam_state.actual_position = cam_state.get_position_at_radius(config.camera_lock_radius);
         } else {
             cam_state.actual_position = camera_after_collisions;
         }
@@ -170,6 +185,7 @@ impl CollidingController {
 
 /// Try to find the ideal location to cast a sphere from.
 fn find_start_of_sphere_cast(
+    config: &CameraCollisionConfig,
     path_start: &lat::Point,
     target: Point3<f32>,
     camera: Point3<f32>,
@@ -177,7 +193,7 @@ fn find_start_of_sphere_cast(
 ) -> Point3<f32> {
     // If we're already pretty close to the camera, there's not much use in finding a path around
     // occluders.
-    if (target - camera).norm_squared() < NOT_WORTH_SEARCHING_DIST_SQ {
+    if (target - camera).norm_squared() < config.not_worth_searching_dist.powi(2) {
         return target;
     }
 
@@ -195,12 +211,14 @@ fn find_start_of_sphere_cast(
         let p_rej = p - p_proj;
 
         // Don't let the search go too far in directions orthogonal to the eye vector.
-        if p_rej.norm_squared() > MAX_ORTHOGONAL_DIST_SQ {
+        if p_rej.norm_squared() > config.max_orthogonal_dist.powi(2) {
             return false;
         }
 
         // Bound how far the search can get from the target in terms of the desired camera position.
-        if (p - target).norm_squared() > PATH_PERCENTAGE_SQ * target_to_camera_dist_sq {
+        if (p - target).norm_squared()
+            > config.search_path_selection_range.1.powi(2) * target_to_camera_dist_sq
+        {
             return false;
         }
 
@@ -211,10 +229,10 @@ fn find_start_of_sphere_cast(
         &path_finish,
         map,
         prevent_stray,
-        MAX_SEARCH_ITERATIONS,
+        config.max_search_iterations,
     );
 
-    // Figure out, at a minimum, how far along the path we want to start the sphere cast.
+    // Figure out the range of the path where we want to start the sphere cast.
     let path_end = if let Some(end) = path.last() {
         let LatPoint3(end_float) = (*end).into();
 
@@ -223,15 +241,22 @@ fn find_start_of_sphere_cast(
         // Path is empty.
         return target;
     };
-    let target_separation_sq = PATH_PERCENTAGE_SQ * (target - path_end).norm_squared();
+    let path_len_sq = (target - path_end).norm_squared();
+    let target_separation_low_sq = config.search_path_selection_range.0.powi(2) * path_len_sq;
+    let target_separation_high_sq = config.search_path_selection_range.1.powi(2) * path_len_sq;
 
-    // Choose a point on the path as the starting point for the sphere cast. It should be some
-    // minimum distance from the target along the ray subspace, and it should be in an empty voxel.
-    for p in path.iter() {
+    // Choose a point on the path as the starting point for the sphere cast. It should fall in some
+    // constrained range of the path, and it should be in an empty voxel. Prefer points closer to
+    // the camera.
+    for p in path.iter().rev() {
         let LatPoint3(p_float) = (*p).into();
         let proj_p = project_point_onto_line(&p_float, &eye_ray);
-        if (target - proj_p).norm_squared() < target_separation_sq {
+        let p_dist_sq = (target - proj_p).norm_squared();
+        if p_dist_sq > target_separation_high_sq {
             continue;
+        }
+        if p_dist_sq < target_separation_low_sq {
+            break;
         }
         let voxel_proj_p = voxel_containing_point(&proj_p);
         if map.voxel_is_empty(&voxel_proj_p) {
@@ -241,7 +266,7 @@ fn find_start_of_sphere_cast(
                 p,
                 map,
                 |_| true,
-                PROJECTION_CONNECTION_MAX_ITERATIONS,
+                config.projection_connection_max_iterations,
             );
             if reached_finish {
                 return proj_p;
