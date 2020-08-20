@@ -96,7 +96,7 @@ where
 
     let path = reverse_path(&parents, |&(p, _)| p, best_index_so_far);
 
-    (true, path, best_cost_so_far)
+    (false, path, best_cost_so_far)
 }
 
 struct SmallestCostHolder<K> {
