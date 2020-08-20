@@ -201,7 +201,6 @@ fn find_start_of_sphere_cast(
     profile_scope!("find_start_of_sphere_cast");
 
     let eye_ray = Line::from_endpoints(target, camera);
-    let target_to_camera_dist_sq = eye_ray.v.norm_squared();
 
     // Graph search away from the target to get as close to the camera as possible.
     let path_finish = voxel_containing_point(&camera);
@@ -212,13 +211,6 @@ fn find_start_of_sphere_cast(
 
         // Don't let the search go too far in directions orthogonal to the eye vector.
         if p_rej.norm_squared() > config.max_orthogonal_dist.powi(2) {
-            return false;
-        }
-
-        // Bound how far the search can get from the target in terms of the desired camera position.
-        if (p - target).norm_squared()
-            > config.search_path_selection_range.1.powi(2) * target_to_camera_dist_sq
-        {
             return false;
         }
 
