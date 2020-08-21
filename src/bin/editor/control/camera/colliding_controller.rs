@@ -124,20 +124,29 @@ impl CollidingController {
         } else if input.radius_scalar < 1.0 {
             // If the desired radius is longer than actual because of collision, just truncate it
             // so the camera moves as soon as the player starts shortening the radius.
-            let actual_radius = (cam_state.target - cam_state.actual_position).norm();
-            cam_state.set_radius(actual_radius, config);
+            cam_state.set_radius(cam_state.get_actual_radius(), config);
 
             cam_state.scale_radius(input.radius_scalar, config);
         }
 
+        self.determine_camera_position(&config.collision, voxel_map, voxel_bvt, &mut cam_state);
+
+        cam_state
+    }
+
+    fn determine_camera_position(
+        &mut self,
+        config: &CameraCollisionConfig,
+        voxel_map: &VoxelMap,
+        voxel_bvt: &VoxelBVT,
+        cam_state: &mut ThirdPersonCameraState,
+    ) {
         let desired_position = cam_state.get_desired_position();
 
         // Choose an empty voxel to start our search path.
         let feet_voxel = voxel_containing_point(&cam_state.feet);
         self.set_last_empty_feet_voxel(voxel_map, feet_voxel);
         let empty_path_start = self.last_empty_feet_point.as_ref().unwrap();
-
-        let config = &config.collision;
 
         // We always try to find a short path around voxels that occlude the target before doing
         // the sphere cast.
@@ -167,8 +176,6 @@ impl CollidingController {
         } else {
             cam_state.actual_position = camera_after_collisions;
         }
-
-        cam_state
     }
 
     fn set_last_empty_feet_voxel(&mut self, voxel_map: &VoxelMap, new_feet: lat::Point) {

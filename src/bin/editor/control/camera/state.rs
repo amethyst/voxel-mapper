@@ -47,6 +47,10 @@ impl ThirdPersonCameraState {
         }
     }
 
+    pub fn get_actual_radius(&self) -> f32 {
+        (self.target - self.actual_position).norm()
+    }
+
     pub fn get_position_at_radius(&self, radius: f32) -> Point3<f32> {
         self.target + radius * self.eye_vec.unit_vector()
     }
