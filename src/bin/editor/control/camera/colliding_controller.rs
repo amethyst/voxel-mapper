@@ -31,6 +31,9 @@ pub struct CameraCollisionConfig {
     /// The smallest orthogonal deviation from the eye line that's considered a significant
     /// obstruction.
     min_obstruction_width: f32,
+    /// When choosing the best unobstructed range along the eye line, the chosen range must be
+    /// longer than some minimum length.
+    min_unobstructed_range_length: f32,
     /// The cutoff distance below which we don't event try doing a camera search.
     not_worth_searching_dist: f32,
     /// The maximum number of A* iterations we will do in the camera search. This is important so
@@ -207,7 +210,9 @@ fn find_start_of_sphere_cast(
     );
 
     let unobstructed_ranges = find_unobstructed_ranges(&path, &eye_ray, voxel_is_empty_fn, config);
-    if let Some(best_range) = choose_best_unobstructed_range(&unobstructed_ranges) {
+    if let Some(best_range) =
+        choose_best_unobstructed_range(&unobstructed_ranges, config.min_unobstructed_range_length)
+    {
         find_start_of_sphere_cast_in_range(&path, &best_range, &eye_ray)
     } else {
         // Couldn't find a good unobstructed range.
@@ -302,6 +307,7 @@ fn point_is_obstructed(
 /// spatious enough to do a sphere cast.
 fn choose_best_unobstructed_range(
     unobstructed_ranges: &[([usize; 2], [f32; 2])],
+    min_range_length: f32,
 ) -> Option<[usize; 2]> {
     let mut best_range = None;
     let mut best_range_len = 0.0;
@@ -310,7 +316,7 @@ fn choose_best_unobstructed_range(
     for (range, [start_dist, end_dist]) in unobstructed_ranges.iter() {
         // println!("RANGE = {:?} {:?}", range, [start_dist, end_dist]);
         let range_len = end_dist - start_dist;
-        if range_len > best_range_len || range_len > 2.0 {
+        if range_len > best_range_len || range_len > min_range_length {
             best_range_len = range_len;
             best_range = Some(*range);
         }
