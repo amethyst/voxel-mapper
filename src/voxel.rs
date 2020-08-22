@@ -104,13 +104,15 @@ pub struct VoxelMap {
     pub voxels: ChunkedPaletteLatticeMap<VoxelInfo, Voxel>,
 }
 
-impl VoxelMap {
-    pub fn voxel_is_empty(&self, p: &lat::Point) -> bool {
-        if let Some(v) = self.voxels.maybe_get_world_ref(p) {
-            v.is_empty()
-        } else {
-            true
-        }
+pub fn voxel_is_empty<V, T>(voxels: &V, p: &lat::Point) -> bool
+where
+    V: MaybeGetWorldRef<Data = T>,
+    T: IsEmpty,
+{
+    if let Some(v) = voxels.maybe_get_world_ref(p) {
+        v.is_empty()
+    } else {
+        true
     }
 }
 

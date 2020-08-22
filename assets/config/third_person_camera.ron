@@ -10,8 +10,7 @@
         smoothing_weight: 0.9,
         collision: (
             ball_radius: 1.0,
-            search_path_selection_range: (0.5, 0.9),
-            max_orthogonal_dist: 6.0,
+            min_obstruction_width: 2.0,
             not_worth_searching_dist: 4.0,
             max_search_iterations: 2000,
             projection_connection_max_iterations: 10,

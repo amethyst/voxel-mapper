@@ -5,7 +5,10 @@ use voxel_mapper::{
         earliest_toi, extreme_ball_voxel_impact, floor_translation::translate_over_floor, VoxelBVT,
     },
     geometry::{project_point_onto_line, Line, UP},
-    voxel::{search::find_path_through_empty_voxels, voxel_containing_point, LatPoint3, VoxelMap},
+    voxel::{
+        search::{find_path_on_line_through_empty_voxels, find_path_through_empty_voxels},
+        voxel_containing_point, voxel_is_empty, LatPoint3, VoxelMap,
+    },
 };
 
 use amethyst::core::math::{Point3, Vector3};
@@ -25,12 +28,9 @@ use thread_profiler::profile_scope;
 pub struct CameraCollisionConfig {
     /// Size of the collidable ball surrounding the camera.
     ball_radius: f32,
-    /// When choosing a point on the camera search path, this gives us an allowable range in
-    /// fraction of the total path length (values in [0, 1]).
-    search_path_selection_range: (f32, f32),
-    /// The maximum distance that the camera search can stray from the eye line. This determines
-    /// how wide of an object the search can get around.
-    max_orthogonal_dist: f32,
+    /// The smallest orthogonal deviation from the eye line that's considered a significant
+    /// obstruction.
+    min_obstruction_width: f32,
     /// The cutoff distance below which we don't event try doing a camera search.
     not_worth_searching_dist: f32,
     /// The maximum number of A* iterations we will do in the camera search. This is important so
@@ -39,13 +39,288 @@ pub struct CameraCollisionConfig {
     /// When projecting a point on the search path onto the eye line, we need to make sure it's
     /// still path-connected to the same empty space (to avoid going through solid boundaries). We
     /// use another A* search to determine the connectivity, and this is the max # of iterations.
-    /// Correlated with the `max_orthogonal_dist`.
     projection_connection_max_iterations: usize,
     /// If the distance to the camera target falls below this threshold, the camera locks into a
     /// fixed distance from the target.
     camera_lock_threshold: f32,
     /// When the camera is locked to a fixed distance from the target, this is that distance.
     camera_lock_radius: f32,
+}
+
+/// Resolves collisions to prevent occluding the target.
+pub struct CollidingController {
+    colliding: bool,
+    last_empty_feet_point: Option<lat::Point>,
+}
+
+impl CollidingController {
+    pub fn new() -> Self {
+        Self {
+            colliding: false,
+            last_empty_feet_point: None,
+        }
+    }
+
+    pub fn apply_input(
+        &mut self,
+        config: &ThirdPersonControlConfig,
+        mut cam_state: ThirdPersonCameraState,
+        input: &ProcessedInput,
+        voxel_map: &VoxelMap,
+        voxel_bvt: &VoxelBVT,
+    ) -> ThirdPersonCameraState {
+        // Figure out the where the camera feet are.
+        cam_state.feet = translate_over_floor(
+            &cam_state.feet,
+            &input.feet_translation,
+            &voxel_map.voxels,
+            true,
+        );
+        // Figure out where the camera target is.
+        cam_state.target = cam_state.feet + Vector3::from(UP);
+
+        self.set_desired_camera_position(input, config, &mut cam_state);
+
+        let voxel_is_empty_fn = |p: &lat::Point| voxel_is_empty(&voxel_map.voxels, p);
+        self.resolve_camera_collisions(
+            &config.collision,
+            &voxel_is_empty_fn,
+            voxel_bvt,
+            &mut cam_state,
+        );
+
+        cam_state
+    }
+
+    fn set_desired_camera_position(
+        &self,
+        input: &ProcessedInput,
+        config: &ThirdPersonControlConfig,
+        cam_state: &mut ThirdPersonCameraState,
+    ) {
+        // Rotate around the target.
+        cam_state.add_yaw(input.delta_yaw);
+        cam_state.add_pitch(input.delta_pitch);
+
+        // Scale the camera's distance from the target.
+        if input.radius_scalar > 1.0 {
+            // Don't move the camera if it's colliding.
+            if !self.colliding {
+                cam_state.scale_radius(input.radius_scalar, config);
+            }
+        } else if input.radius_scalar < 1.0 {
+            // If the desired radius is longer than actual because of collision, just truncate it
+            // so the camera moves as soon as the player starts shortening the radius.
+            cam_state.set_radius(cam_state.get_actual_radius(), config);
+
+            cam_state.scale_radius(input.radius_scalar, config);
+        }
+    }
+
+    fn resolve_camera_collisions(
+        &mut self,
+        config: &CameraCollisionConfig,
+        voxel_is_empty_fn: &impl Fn(&lat::Point) -> bool,
+        voxel_bvt: &VoxelBVT,
+        cam_state: &mut ThirdPersonCameraState,
+    ) {
+        let desired_position = cam_state.get_desired_position();
+
+        // Choose an empty voxel to start our search path.
+        let feet_voxel = voxel_containing_point(&cam_state.feet);
+        self.set_last_empty_feet_voxel(voxel_is_empty_fn, feet_voxel);
+        let empty_path_start = self.last_empty_feet_point.as_ref().unwrap();
+
+        // We always try to find a short path around voxels that occlude the target before doing
+        // the sphere cast.
+        let sphere_cast_start = find_start_of_sphere_cast(
+            config,
+            empty_path_start,
+            cam_state.target,
+            desired_position,
+            voxel_is_empty_fn,
+        );
+        let (was_collision, camera_after_collisions) = move_ball_until_collision(
+            config.ball_radius,
+            &sphere_cast_start,
+            &desired_position,
+            voxel_bvt,
+            earliest_toi,
+            |_| true,
+        );
+        self.colliding = was_collision;
+
+        if (camera_after_collisions - cam_state.target).norm_squared()
+            < config.camera_lock_threshold.powi(2)
+        {
+            // If we're really close to the target, wonky stuff can happen with collisions, so just
+            // lock into a tight sphere.
+            cam_state.actual_position = cam_state.get_position_at_radius(config.camera_lock_radius);
+        } else {
+            cam_state.actual_position = camera_after_collisions;
+        }
+    }
+
+    fn set_last_empty_feet_voxel(
+        &mut self,
+        voxel_is_empty_fn: &impl Fn(&lat::Point) -> bool,
+        new_feet: lat::Point,
+    ) {
+        // HACK: really, the feet should never be in a non-empty voxel
+        if self.last_empty_feet_point.is_some() {
+            if voxel_is_empty_fn(&new_feet) {
+                self.last_empty_feet_point = Some(new_feet);
+            }
+        } else {
+            self.last_empty_feet_point = Some(new_feet);
+        }
+    }
+}
+
+/// Try to find the ideal location to cast a sphere from.
+fn find_start_of_sphere_cast(
+    config: &CameraCollisionConfig,
+    path_start: &lat::Point,
+    target: Point3<f32>,
+    camera: Point3<f32>,
+    voxel_is_empty_fn: &impl Fn(&lat::Point) -> bool,
+) -> Point3<f32> {
+    // If we want to be close to the camera, there's not much use in finding a path around
+    // occluders.
+    if (target - camera).norm_squared() < config.not_worth_searching_dist.powi(2) {
+        return target;
+    }
+
+    #[cfg(feature = "profiler")]
+    profile_scope!("find_start_of_sphere_cast");
+
+    let eye_ray = Line::from_endpoints(target, camera);
+
+    // Graph search away from the target to get as close to the camera as possible. It's OK if we
+    // don't reach the camera, since we'll still return the path that got closest.
+    let path_finish = voxel_containing_point(&camera);
+    let (_reached_finish, path) = find_path_on_line_through_empty_voxels(
+        path_start,
+        &path_finish,
+        voxel_is_empty_fn,
+        config.max_search_iterations,
+    );
+
+    let unobstructed_ranges = find_unobstructed_ranges(&path, &eye_ray, voxel_is_empty_fn, config);
+    if let Some(best_range) = choose_best_unobstructed_range(&unobstructed_ranges) {
+        find_start_of_sphere_cast_in_range(&path, &best_range, &eye_ray)
+    } else {
+        // Couldn't find a good unobstructed range.
+        target
+    }
+}
+
+/// Used to as the offset from the end of a path range for choosing where to start a sphere cast
+/// inside that range. The hope is that we won't choose a point so close to the end of the range
+/// that the sphere is immediately colliding with something.
+const NOT_TOO_CLOSE_OFFSET: usize = 2;
+
+/// Given `path`, find all contiguous ranges of points that are not obstructed by non-empty voxels.
+/// The ranges are open-ended, i.e. not including the end: [start, end).
+fn find_unobstructed_ranges(
+    path: &[lat::Point],
+    eye_line: &Line,
+    voxel_is_empty_fn: &impl Fn(&lat::Point) -> bool,
+    config: &CameraCollisionConfig,
+) -> Vec<([usize; 2], [f32; 2])> {
+    let mut unobstructed_ranges = Vec::new();
+    let mut current_range_start = Some((0, 0.0));
+
+    let mut try_add_range =
+        |end_index: usize, p_proj: Point3<f32>, range_start: &mut Option<(usize, f32)>| {
+            if let Some((start_index, start_dist)) = *range_start {
+                if end_index - start_index >= NOT_TOO_CLOSE_OFFSET {
+                    let end_dist = (p_proj - eye_line.p).norm();
+                    unobstructed_ranges.push(([start_index, end_index], [start_dist, end_dist]))
+                }
+
+                *range_start = None;
+            }
+        };
+
+    for (i, p) in path.iter().enumerate() {
+        let LatPoint3(p_float) = (*p).into();
+        let p_proj = project_point_onto_line(&p_float, &eye_line);
+
+        // Figure out if point p is obstructed, which is the case if:
+        //   1. The point strays too far from the eye line.
+        //   2. The voxel projection of the point on the eye line is not connected to empty space.
+        let mut obstructed = true;
+        let p_rej = p_float - p_proj;
+        if p_rej.norm_squared() < config.min_obstruction_width.powi(2) {
+            obstructed = false;
+        } else {
+            let voxel_p_proj = voxel_containing_point(&p_proj);
+            if voxel_is_empty_fn(&voxel_p_proj) {
+                // Projection must still be path-connected to empty space.
+                let (connected, _) = find_path_through_empty_voxels(
+                    &voxel_p_proj,
+                    p,
+                    voxel_is_empty_fn,
+                    config.projection_connection_max_iterations,
+                );
+                obstructed = !connected;
+            }
+        }
+
+        if obstructed {
+            try_add_range(i, p_proj, &mut current_range_start);
+        } else if let None = current_range_start {
+            // We're no longer obstructed, so start a new range.
+            current_range_start = Some((i, (p_proj - eye_line.p).norm()));
+        }
+    }
+
+    // Finish off the last range.
+    if let Some(p) = path.last() {
+        let LatPoint3(p_float) = (*p).into();
+        try_add_range(
+            path.len(),
+            project_point_onto_line(&p_float, &eye_line),
+            &mut current_range_start,
+        );
+    }
+
+    unobstructed_ranges
+}
+
+/// Choose the contiguous range of points that is closest to the desired camera position, but also
+/// spatious enough to do a sphere cast.
+fn choose_best_unobstructed_range(
+    unobstructed_ranges: &[([usize; 2], [f32; 2])],
+) -> Option<[usize; 2]> {
+    let mut best_range = None;
+    let mut best_range_len = 0.0;
+
+    // println!("======= RANGES =======");
+    for (range, [start_dist, end_dist]) in unobstructed_ranges.iter() {
+        // println!("RANGE = {:?} {:?}", range, [start_dist, end_dist]);
+        let range_len = end_dist - start_dist;
+        if range_len > best_range_len || range_len > 2.0 {
+            best_range_len = range_len;
+            best_range = Some(*range);
+        }
+    }
+
+    best_range
+}
+
+/// Choose the point in the range that has the best chance of casting the sphere farthest, i.e. a
+/// point that's close to the end of the range, but not too close.
+fn find_start_of_sphere_cast_in_range(
+    path: &[lat::Point],
+    path_range: &[usize; 2],
+    eye_line: &Line,
+) -> Point3<f32> {
+    let chosen_index = (path_range[1] - NOT_TOO_CLOSE_OFFSET).max(path_range[0]);
+    let LatPoint3(p) = path[chosen_index].into();
+
+    project_point_onto_line(&p, eye_line)
 }
 
 fn move_ball_until_collision(
@@ -78,200 +353,69 @@ fn move_ball_until_collision(
     }
 }
 
-/// Resolves collisions to prevent occluding the target.
-pub struct CollidingController {
-    colliding: bool,
-    last_empty_feet_point: Option<lat::Point>,
-}
+// ████████╗███████╗███████╗████████╗███████╗
+// ╚══██╔══╝██╔════╝██╔════╝╚══██╔══╝██╔════╝
+//    ██║   █████╗  ███████╗   ██║   ███████╗
+//    ██║   ██╔══╝  ╚════██║   ██║   ╚════██║
+//    ██║   ███████╗███████║   ██║   ███████║
+//    ╚═╝   ╚══════╝╚══════╝   ╚═╝   ╚══════╝
 
-impl CollidingController {
-    pub fn new() -> Self {
-        Self {
-            colliding: false,
-            last_empty_feet_point: None,
-        }
-    }
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    pub fn apply_input(
-        &mut self,
-        config: &ThirdPersonControlConfig,
-        mut cam_state: ThirdPersonCameraState,
-        input: &ProcessedInput,
-        voxel_map: &VoxelMap,
-        voxel_bvt: &VoxelBVT,
-    ) -> ThirdPersonCameraState {
-        // Figure out the where the camera feet are.
-        cam_state.feet = translate_over_floor(
-            &cam_state.feet,
-            &input.feet_translation,
-            &voxel_map.voxels,
-            true,
-        );
-
-        // Figure out where the camera target is.
-        cam_state.target = cam_state.feet + Vector3::from(UP);
-
-        // Rotate around the target.
-        cam_state.add_yaw(input.delta_yaw);
-        cam_state.add_pitch(input.delta_pitch);
-
-        // Scale the camera's distance from the target.
-        if input.radius_scalar > 1.0 {
-            // Don't move the camera if it's colliding.
-            if !self.colliding {
-                cam_state.scale_radius(input.radius_scalar, config);
-            }
-        } else if input.radius_scalar < 1.0 {
-            // If the desired radius is longer than actual because of collision, just truncate it
-            // so the camera moves as soon as the player starts shortening the radius.
-            cam_state.set_radius(cam_state.get_actual_radius(), config);
-
-            cam_state.scale_radius(input.radius_scalar, config);
-        }
-
-        self.determine_camera_position(&config.collision, voxel_map, voxel_bvt, &mut cam_state);
-
-        cam_state
-    }
-
-    fn determine_camera_position(
-        &mut self,
-        config: &CameraCollisionConfig,
-        voxel_map: &VoxelMap,
-        voxel_bvt: &VoxelBVT,
-        cam_state: &mut ThirdPersonCameraState,
-    ) {
-        let desired_position = cam_state.get_desired_position();
-
-        // Choose an empty voxel to start our search path.
-        let feet_voxel = voxel_containing_point(&cam_state.feet);
-        self.set_last_empty_feet_voxel(voxel_map, feet_voxel);
-        let empty_path_start = self.last_empty_feet_point.as_ref().unwrap();
-
-        // We always try to find a short path around voxels that occlude the target before doing
-        // the sphere cast.
-        let sphere_cast_start = find_start_of_sphere_cast(
-            config,
-            empty_path_start,
-            cam_state.target,
-            desired_position,
-            voxel_map,
-        );
-        let (was_collision, camera_after_collisions) = move_ball_until_collision(
-            config.ball_radius,
-            &sphere_cast_start,
-            &desired_position,
-            voxel_bvt,
-            earliest_toi,
-            |_| true,
-        );
-        self.colliding = was_collision;
-
-        if (camera_after_collisions - cam_state.target).norm_squared()
-            < config.camera_lock_threshold.powi(2)
-        {
-            // If we're really close to the target, wonky stuff can happen with collisions, so just
-            // lock into a tight sphere.
-            cam_state.actual_position = cam_state.get_position_at_radius(config.camera_lock_radius);
-        } else {
-            cam_state.actual_position = camera_after_collisions;
-        }
-    }
-
-    fn set_last_empty_feet_voxel(&mut self, voxel_map: &VoxelMap, new_feet: lat::Point) {
-        // HACK: really, the feet should never be in a non-empty voxel
-        if self.last_empty_feet_point.is_some() {
-            if voxel_map.voxel_is_empty(&new_feet) {
-                self.last_empty_feet_point = Some(new_feet);
-            }
-        } else {
-            self.last_empty_feet_point = Some(new_feet);
-        }
-    }
-}
-
-/// Try to find the ideal location to cast a sphere from.
-fn find_start_of_sphere_cast(
-    config: &CameraCollisionConfig,
-    path_start: &lat::Point,
-    target: Point3<f32>,
-    camera: Point3<f32>,
-    map: &VoxelMap,
-) -> Point3<f32> {
-    // If we're already pretty close to the camera, there's not much use in finding a path around
-    // occluders.
-    if (target - camera).norm_squared() < config.not_worth_searching_dist.powi(2) {
-        return target;
-    }
-
-    #[cfg(feature = "profiler")]
-    profile_scope!("find_start_of_sphere_cast");
-
-    let eye_ray = Line::from_endpoints(target, camera);
-
-    // Graph search away from the target to get as close to the camera as possible.
-    let path_finish = voxel_containing_point(&camera);
-    let prevent_stray = |p: &lat::Point| {
-        let LatPoint3(p) = (*p).into();
-        let p_proj = project_point_onto_line(&p, &eye_ray);
-        let p_rej = p - p_proj;
-
-        // Don't let the search go too far in directions orthogonal to the eye vector.
-        if p_rej.norm_squared() > config.max_orthogonal_dist.powi(2) {
-            return false;
-        }
-
-        true
+    const TEST_CONFIG: CameraCollisionConfig = CameraCollisionConfig {
+        ball_radius: 1.0,
+        min_obstruction_width: 3.0,
+        not_worth_searching_dist: 4.0,
+        max_search_iterations: 2000,
+        projection_connection_max_iterations: 10,
+        camera_lock_threshold: 2.0,
+        camera_lock_radius: 0.8,
     };
-    let (_reached_finish, path) = find_path_through_empty_voxels(
-        path_start,
-        &path_finish,
-        map,
-        prevent_stray,
-        config.max_search_iterations,
-    );
 
-    // Figure out the range of the path where we want to start the sphere cast.
-    let path_end = if let Some(end) = path.last() {
-        let LatPoint3(end_float) = (*end).into();
+    #[test]
+    fn test_best_unobstructed_range_without_obstructions() {
+        let voxel_is_empty_fn = |_p: &lat::Point| true;
 
-        project_point_onto_line(&end_float, &eye_ray)
-    } else {
-        // Path is empty.
-        return target;
-    };
-    let path_len_sq = (target - path_end).norm_squared();
-    let target_separation_low_sq = config.search_path_selection_range.0.powi(2) * path_len_sq;
-    let target_separation_high_sq = config.search_path_selection_range.1.powi(2) * path_len_sq;
+        let eye_line =
+            Line::from_endpoints(Point3::new(0.0, 0.0, 0.0), Point3::new(10.0, 0.0, 0.0));
 
-    // Choose a point on the path as the starting point for the sphere cast. It should fall in some
-    // constrained range of the path, and it should be in an empty voxel. Prefer points closer to
-    // the camera.
-    for p in path.iter().rev() {
-        let LatPoint3(p_float) = (*p).into();
-        let proj_p = project_point_onto_line(&p_float, &eye_ray);
-        let p_dist_sq = (target - proj_p).norm_squared();
-        if p_dist_sq > target_separation_high_sq {
-            continue;
+        let mut path = Vec::new();
+        for i in 0..10 {
+            path.push([i, 0, 0].into());
         }
-        if p_dist_sq < target_separation_low_sq {
-            break;
-        }
-        let voxel_proj_p = voxel_containing_point(&proj_p);
-        if map.voxel_is_empty(&voxel_proj_p) {
-            // Projection must still be path-connected to empty space.
-            let (reached_finish, _) = find_path_through_empty_voxels(
-                &voxel_proj_p,
-                p,
-                map,
-                |_| true,
-                config.projection_connection_max_iterations,
-            );
-            if reached_finish {
-                return proj_p;
-            }
-        }
+
+        let ranges = find_unobstructed_ranges(&path, &eye_line, &voxel_is_empty_fn, &TEST_CONFIG);
+
+        assert_eq!(ranges, vec![([0, 10], [0.0, 9.0])]);
     }
 
-    target
+    #[test]
+    fn test_best_unobstructed_range_with_one_obstruction() {
+        // Put a spherical obstruction centered at (0, 0, 0).
+        let voxel_is_empty_fn = |p: &lat::Point| {
+            let diff = *p - [0, 0, 0].into();
+
+            diff.dot(&diff) > (TEST_CONFIG.min_obstruction_width as i32 + 1).pow(2)
+        };
+
+        let eye_line = Line::from_endpoints(Point3::new(0.0, 0.0, 0.0), Point3::new(1.0, 0.0, 0.0));
+
+        let start = [-20, 0, 0].into();
+        let finish = [100, 0, 0].into();
+        let (reached_finish, path) =
+            find_path_on_line_through_empty_voxels(&start, &finish, &voxel_is_empty_fn, 300);
+        println!("PATH = {:?}", path);
+        assert!(reached_finish);
+
+        let ranges = find_unobstructed_ranges(&path, &eye_line, &voxel_is_empty_fn, &TEST_CONFIG);
+
+        assert_eq!(ranges.len(), 2);
+
+        // Second range should start just after the obstacle, which is much closer to the start
+        // than the finish, and extend to the very end.
+        assert!(ranges[1].0[0] <= 60, "{:?}", ranges[1]);
+        assert_eq!(ranges[1].0[1], path.len());
+    }
 }

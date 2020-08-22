@@ -64,6 +64,12 @@ pub fn project_point_onto_line(p: &Point3<f32>, line: &Line) -> Point3<f32> {
     line.p + proj * line_v_unit
 }
 
+pub fn squared_distance_from_line(p: &Point3<f32>, line: &Line) -> f32 {
+    let p_proj = project_point_onto_line(p, line);
+
+    (p - p_proj).norm_squared()
+}
+
 pub struct Sphere {
     pub center: Point3<f32>,
     pub radius: f32,

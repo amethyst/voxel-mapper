@@ -4,7 +4,7 @@ pub mod geometry;
 pub mod rendering;
 pub mod voxel;
 
-mod finite_astar;
+mod search;
 
 #[cfg(test)]
 mod test_util;

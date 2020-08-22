@@ -246,23 +246,26 @@ mod tests {
     }
 
     fn make_floor_strip(voxels: &mut ChunkedLatticeMap<TestVoxel>) {
-        voxels.fill_extent(
+        voxels.fill_extent_or_default(
             &lat::Extent::from_min_and_local_supremum([0, 0, 0].into(), [3, 1, 1].into()),
             TestVoxel(true),
+            (),
             TestVoxel(false),
         );
         // Make some space above the floor to move through.
-        voxels.fill_extent(
+        voxels.fill_extent_or_default(
             &lat::Extent::from_min_and_local_supremum([0, 1, 0].into(), [3, 2, 1].into()),
             TestVoxel(false),
+            (),
             TestVoxel(false),
         );
     }
 
     fn make_bump(voxels: &mut ChunkedLatticeMap<TestVoxel>) {
-        voxels.fill_extent(
+        voxels.fill_extent_or_default(
             &lat::Extent::from_min_and_local_supremum([1, 1, 0].into(), [1, 1, 1].into()),
             TestVoxel(true),
+            (),
             TestVoxel(false),
         );
     }
