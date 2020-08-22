@@ -247,28 +247,7 @@ fn find_unobstructed_ranges(
         let LatPoint3(p_float) = (*p).into();
         let p_proj = project_point_onto_line(&p_float, &eye_line);
 
-        // Figure out if point p is obstructed, which is the case if:
-        //   1. The point strays too far from the eye line.
-        //   2. The voxel projection of the point on the eye line is not connected to empty space.
-        let mut obstructed = true;
-        let p_rej = p_float - p_proj;
-        if p_rej.norm_squared() < config.min_obstruction_width.powi(2) {
-            obstructed = false;
-        } else {
-            let voxel_p_proj = voxel_containing_point(&p_proj);
-            if voxel_is_empty_fn(&voxel_p_proj) {
-                // Projection must still be path-connected to empty space.
-                let (connected, _) = find_path_through_empty_voxels(
-                    &voxel_p_proj,
-                    p,
-                    voxel_is_empty_fn,
-                    config.projection_connection_max_iterations,
-                );
-                obstructed = !connected;
-            }
-        }
-
-        if obstructed {
+        if point_is_obstructed(p, &p_float, &p_proj, voxel_is_empty_fn, config) {
             try_add_range(i, p_proj, &mut current_range_start);
         } else if let None = current_range_start {
             // We're no longer obstructed, so start a new range.
@@ -287,6 +266,36 @@ fn find_unobstructed_ranges(
     }
 
     unobstructed_ranges
+}
+
+/// Figure out if point p is obstructed, which is the case if:
+///   1. The point strays too far from the eye line.
+///   2. The voxel projection of the point on the eye line is not connected to empty space.
+fn point_is_obstructed(
+    p: &lat::Point,
+    p_float: &Point3<f32>,
+    p_proj: &Point3<f32>,
+    voxel_is_empty_fn: &impl Fn(&lat::Point) -> bool,
+    config: &CameraCollisionConfig,
+) -> bool {
+    let p_rej = p_float - p_proj;
+    if p_rej.norm_squared() < config.min_obstruction_width.powi(2) {
+        return false;
+    } else {
+        let voxel_p_proj = voxel_containing_point(&p_proj);
+        if voxel_is_empty_fn(&voxel_p_proj) {
+            // Projection must still be path-connected to empty space.
+            let (connected, _) = find_path_through_empty_voxels(
+                &voxel_p_proj,
+                p,
+                voxel_is_empty_fn,
+                config.projection_connection_max_iterations,
+            );
+            return !connected;
+        }
+    }
+
+    true
 }
 
 /// Choose the contiguous range of points that is closest to the desired camera position, but also

@@ -48,5 +48,5 @@
             ),
         ],
     ),
-    voxels_file_path: None,
+    voxels_file_path: Some("saved_voxels.bin"),
 )
