@@ -31,9 +31,6 @@ pub struct CameraCollisionConfig {
     /// The smallest orthogonal deviation from the eye line that's considered a significant
     /// obstruction.
     min_obstruction_width: f32,
-    /// When choosing the best unobstructed range along the eye line, the chosen range must be
-    /// longer than some minimum length.
-    min_unobstructed_range_length: f32,
     /// The cutoff distance below which we don't event try doing a camera search.
     not_worth_searching_dist: f32,
     /// The maximum number of A* iterations we will do in the camera search. This is important so
@@ -54,6 +51,7 @@ pub struct CameraCollisionConfig {
 pub struct CollidingController {
     colliding: bool,
     last_empty_feet_point: Option<lat::Point>,
+    previous_camera_voxel: Option<lat::Point>,
 }
 
 impl CollidingController {
@@ -61,6 +59,7 @@ impl CollidingController {
         Self {
             colliding: false,
             last_empty_feet_point: None,
+            previous_camera_voxel: None,
         }
     }
 
@@ -132,16 +131,16 @@ impl CollidingController {
         // Choose an empty voxel to start our search path.
         let feet_voxel = voxel_containing_point(&cam_state.feet);
         self.set_last_empty_feet_voxel(voxel_is_empty_fn, feet_voxel);
-        let empty_path_start = self.last_empty_feet_point.as_ref().unwrap();
+        let empty_path_start = self.last_empty_feet_point.clone().unwrap();
 
         // We always try to find a short path around voxels that occlude the target before doing
         // the sphere cast.
-        let sphere_cast_start = find_start_of_sphere_cast(
-            config,
-            empty_path_start,
+        let sphere_cast_start = self.find_start_of_sphere_cast(
+            &empty_path_start,
             cam_state.target,
             desired_position,
             voxel_is_empty_fn,
+            config,
         );
         let (was_collision, camera_after_collisions) = move_ball_until_collision(
             config.ball_radius,
@@ -164,6 +163,89 @@ impl CollidingController {
         }
     }
 
+    /// Try to find the ideal location to cast a sphere from.
+    fn find_start_of_sphere_cast(
+        &mut self,
+        path_start: &lat::Point,
+        target: Point3<f32>,
+        camera: Point3<f32>,
+        voxel_is_empty_fn: &impl Fn(&lat::Point) -> bool,
+        config: &CameraCollisionConfig,
+    ) -> Point3<f32> {
+        // If we want to be close to the camera, there's not much use in finding a path around
+        // occluders.
+        if (target - camera).norm_squared() < config.not_worth_searching_dist.powi(2) {
+            return target;
+        }
+
+        #[cfg(feature = "profiler")]
+        profile_scope!("find_start_of_sphere_cast");
+
+        let eye_ray = Line::from_endpoints(target, camera);
+
+        // Graph search away from the target to get as close to the camera as possible. It's OK if
+        // we don't reach the camera, since we'll still return the path that got closest.
+        let path_finish = voxel_containing_point(&camera);
+        let (_reached_finish, path) = find_path_on_line_through_empty_voxels(
+            path_start,
+            &path_finish,
+            voxel_is_empty_fn,
+            config.max_search_iterations,
+        );
+
+        let unobstructed_ranges =
+            find_unobstructed_ranges(&path, &eye_ray, voxel_is_empty_fn, config);
+
+        self.find_start_of_sphere_cast_in_ranges(
+            &unobstructed_ranges,
+            &path,
+            &eye_ray,
+            voxel_is_empty_fn,
+            config,
+        )
+        .unwrap_or(target)
+    }
+
+    fn find_start_of_sphere_cast_in_ranges(
+        &mut self,
+        unobstructed_ranges: &[([usize; 2], [f32; 2])],
+        path: &[lat::Point],
+        eye_line: &Line,
+        voxel_is_empty_fn: &impl Fn(&lat::Point) -> bool,
+        config: &CameraCollisionConfig,
+    ) -> Option<Point3<f32>> {
+        let mut best_point = None;
+        let mut best_point_closeness = std::usize::MAX;
+
+        for (range, _) in unobstructed_ranges.iter() {
+            let point_in_range = find_start_of_sphere_cast_in_range(path, range);
+            let closeness = if let Some(previous_camera) = self.previous_camera_voxel.as_ref() {
+                let (_reached_finish, path) = find_path_through_empty_voxels(
+                    previous_camera,
+                    &point_in_range,
+                    voxel_is_empty_fn,
+                    config.max_search_iterations,
+                );
+
+                path.len()
+            } else {
+                0
+            };
+            // Must be closer than the current best point.
+            if closeness < best_point_closeness {
+                best_point_closeness = closeness;
+                best_point = Some(point_in_range);
+            }
+        }
+
+        best_point.map(|p| {
+            self.previous_camera_voxel = Some(p);
+            let LatPoint3(p) = p.into();
+
+            project_point_onto_line(&p, eye_line)
+        })
+    }
+
     fn set_last_empty_feet_voxel(
         &mut self,
         voxel_is_empty_fn: &impl Fn(&lat::Point) -> bool,
@@ -180,50 +262,18 @@ impl CollidingController {
     }
 }
 
-/// Try to find the ideal location to cast a sphere from.
-fn find_start_of_sphere_cast(
-    config: &CameraCollisionConfig,
-    path_start: &lat::Point,
-    target: Point3<f32>,
-    camera: Point3<f32>,
-    voxel_is_empty_fn: &impl Fn(&lat::Point) -> bool,
-) -> Point3<f32> {
-    // If we want to be close to the camera, there's not much use in finding a path around
-    // occluders.
-    if (target - camera).norm_squared() < config.not_worth_searching_dist.powi(2) {
-        return target;
-    }
-
-    #[cfg(feature = "profiler")]
-    profile_scope!("find_start_of_sphere_cast");
-
-    let eye_ray = Line::from_endpoints(target, camera);
-
-    // Graph search away from the target to get as close to the camera as possible. It's OK if we
-    // don't reach the camera, since we'll still return the path that got closest.
-    let path_finish = voxel_containing_point(&camera);
-    let (_reached_finish, path) = find_path_on_line_through_empty_voxels(
-        path_start,
-        &path_finish,
-        voxel_is_empty_fn,
-        config.max_search_iterations,
-    );
-
-    let unobstructed_ranges = find_unobstructed_ranges(&path, &eye_ray, voxel_is_empty_fn, config);
-    if let Some(best_range) =
-        choose_best_unobstructed_range(&unobstructed_ranges, config.min_unobstructed_range_length)
-    {
-        find_start_of_sphere_cast_in_range(&path, &best_range, &eye_ray)
-    } else {
-        // Couldn't find a good unobstructed range.
-        target
-    }
-}
-
 /// Used to as the offset from the end of a path range for choosing where to start a sphere cast
 /// inside that range. The hope is that we won't choose a point so close to the end of the range
 /// that the sphere is immediately colliding with something.
 const NOT_TOO_CLOSE_OFFSET: usize = 2;
+
+/// Choose the point in the range that has the best chance of casting the sphere farthest, i.e. a
+/// point that's close to the end of the range, but not too close.
+fn find_start_of_sphere_cast_in_range(path: &[lat::Point], path_range: &[usize; 2]) -> lat::Point {
+    let chosen_index = (path_range[1] - NOT_TOO_CLOSE_OFFSET).max(path_range[0]);
+
+    path[chosen_index]
+}
 
 /// Given `path`, find all contiguous ranges of points that are not obstructed by non-empty voxels.
 /// The ranges are open-ended, i.e. not including the end: [start, end).
@@ -301,41 +351,6 @@ fn point_is_obstructed(
     }
 
     true
-}
-
-/// Choose the contiguous range of points that is closest to the desired camera position, but also
-/// spatious enough to do a sphere cast.
-fn choose_best_unobstructed_range(
-    unobstructed_ranges: &[([usize; 2], [f32; 2])],
-    min_range_length: f32,
-) -> Option<[usize; 2]> {
-    let mut best_range = None;
-    let mut best_range_len = 0.0;
-
-    // println!("======= RANGES =======");
-    for (range, [start_dist, end_dist]) in unobstructed_ranges.iter() {
-        // println!("RANGE = {:?} {:?}", range, [start_dist, end_dist]);
-        let range_len = end_dist - start_dist;
-        if range_len > best_range_len || range_len > min_range_length {
-            best_range_len = range_len;
-            best_range = Some(*range);
-        }
-    }
-
-    best_range
-}
-
-/// Choose the point in the range that has the best chance of casting the sphere farthest, i.e. a
-/// point that's close to the end of the range, but not too close.
-fn find_start_of_sphere_cast_in_range(
-    path: &[lat::Point],
-    path_range: &[usize; 2],
-    eye_line: &Line,
-) -> Point3<f32> {
-    let chosen_index = (path_range[1] - NOT_TOO_CLOSE_OFFSET).max(path_range[0]);
-    let LatPoint3(p) = path[chosen_index].into();
-
-    project_point_onto_line(&p, eye_line)
 }
 
 fn move_ball_until_collision(
@@ -421,7 +436,6 @@ mod tests {
         let finish = [100, 0, 0].into();
         let (reached_finish, path) =
             find_path_on_line_through_empty_voxels(&start, &finish, &voxel_is_empty_fn, 300);
-        println!("PATH = {:?}", path);
         assert!(reached_finish);
 
         let ranges = find_unobstructed_ranges(&path, &eye_line, &voxel_is_empty_fn, &TEST_CONFIG);

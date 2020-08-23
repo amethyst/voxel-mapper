@@ -11,7 +11,6 @@
         collision: (
             ball_radius: 1.0,
             min_obstruction_width: 2.0,
-            min_unobstructed_range_length: 2.0,
             not_worth_searching_dist: 4.0,
             max_search_iterations: 2000,
             projection_connection_max_iterations: 10,
