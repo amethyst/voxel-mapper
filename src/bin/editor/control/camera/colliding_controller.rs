@@ -30,6 +30,9 @@ pub struct CameraCollisionConfig {
     /// The smallest orthogonal deviation from the eye line that's considered a significant
     /// obstruction.
     min_obstruction_width: f32,
+    /// The minimum distance of a range along the eye line. This prevents small ranges that are too
+    /// small to give the camera sphere enough room to move.
+    min_range_length: f32,
     /// The cutoff distance below which we don't event try doing a camera search.
     not_worth_searching_dist: f32,
     /// The maximum number of A* iterations we will do in the camera search. This is important so
@@ -164,6 +167,8 @@ impl CollidingController {
         } else {
             cam_state.actual_position = camera_after_collisions;
         }
+
+        self.previous_camera_voxel = Some(voxel_containing_point(&cam_state.actual_position));
     }
 
     /// Try to find the ideal location to cast a sphere from.
@@ -210,7 +215,7 @@ impl CollidingController {
     }
 
     fn find_start_of_sphere_cast_in_ranges(
-        &mut self,
+        &self,
         unobstructed_ranges: &[([usize; 2], [f32; 2])],
         path: &[lat::Point],
         eye_line: &Line,
@@ -220,6 +225,27 @@ impl CollidingController {
         let mut best_point = None;
         let mut best_point_closeness = std::usize::MAX;
 
+        // If the camera is really close to the target, it might not show up in the unobstructed
+        // ranges, due to min_range_length, but we still want to consider it.
+        if let Some(target_point) = self.last_empty_feet_point {
+            let target_closeness =
+                if let Some(previous_camera) = self.previous_camera_voxel.as_ref() {
+                    let (_reached_finish, path) = find_path_through_voxels_with_l1_heuristic(
+                        &target_point,
+                        previous_camera,
+                        voxel_is_empty_fn,
+                        config.max_search_iterations,
+                    );
+
+                    path.len()
+                } else {
+                    std::usize::MAX
+                };
+
+            best_point = Some(target_point);
+            best_point_closeness = target_closeness;
+        }
+
         for (range, _) in unobstructed_ranges.iter() {
             let point_in_range = find_start_of_sphere_cast_in_range(
                 path,
@@ -228,8 +254,8 @@ impl CollidingController {
             );
             let closeness = if let Some(previous_camera) = self.previous_camera_voxel.as_ref() {
                 let (_reached_finish, path) = find_path_through_voxels_with_l1_heuristic(
-                    previous_camera,
                     &point_in_range,
+                    previous_camera,
                     voxel_is_empty_fn,
                     config.max_search_iterations,
                 );
@@ -246,7 +272,6 @@ impl CollidingController {
         }
 
         best_point.map(|p| {
-            self.previous_camera_voxel = Some(p);
             let LatPoint3(p) = p.into();
 
             project_point_onto_line(&p, eye_line)
@@ -301,7 +326,9 @@ fn find_unobstructed_ranges(
             if let Some((start_index, start_dist)) = *range_start {
                 if end_index > start_index {
                     let end_dist = (p_proj - eye_line.p).norm();
-                    unobstructed_ranges.push(([start_index, end_index], [start_dist, end_dist]))
+                    if end_dist - start_dist > config.min_range_length {
+                        unobstructed_ranges.push(([start_index, end_index], [start_dist, end_dist]))
+                    }
                 }
 
                 *range_start = None;
