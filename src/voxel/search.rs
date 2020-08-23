@@ -11,7 +11,7 @@ use ordered_float::NotNan;
 #[cfg(feature = "profiler")]
 use thread_profiler::profile_scope;
 
-pub fn find_path_though_voxels<C>(
+pub fn find_path_through_voxels<C>(
     start: &lat::Point,
     finish: &lat::Point,
     predicate: impl Fn(&Point) -> bool,
@@ -26,7 +26,7 @@ where
         return (false, vec![]);
     }
 
-    // All adjacent empty points.
+    // All adjacent points satisfying predicate.
     let successors = |p: &lat::Point| {
         FACE_ADJACENT_OFFSETS
             .iter()
@@ -43,14 +43,14 @@ where
     (reached_finish, path)
 }
 
-pub fn find_path_through_empty_voxels(
+pub fn find_path_through_voxels_with_l1_heuristic(
     start: &lat::Point,
     finish: &lat::Point,
-    voxel_is_empty: impl Fn(&lat::Point) -> bool,
+    predicate: impl Fn(&lat::Point) -> bool,
     max_iterations: usize,
 ) -> (bool, Vec<lat::Point>) {
     #[cfg(feature = "profiler")]
-    profile_scope!("find_path_on_line_through_empty_voxels");
+    profile_scope!("find_path_through_voxels_with_l1_heuristic");
 
     let heuristic = |p: &lat::Point| {
         let diff = *finish - *p;
@@ -58,10 +58,10 @@ pub fn find_path_through_empty_voxels(
         diff.x.abs() + diff.y.abs() + diff.z.abs()
     };
 
-    find_path_though_voxels(start, finish, voxel_is_empty, heuristic, max_iterations)
+    find_path_through_voxels(start, finish, predicate, heuristic, max_iterations)
 }
 
-/// Finds a path from `start` to `finish` along empty voxels. Prioritizes staying close to the
+/// Finds a path from `start` to `finish` along voxels. Prioritizes staying close to the
 /// line from `start` to `finish`, so you should get a path like:
 ///
 /// ```text
@@ -77,14 +77,14 @@ pub fn find_path_through_empty_voxels(
 ///               | ++++   ______|
 ///               |_______|
 /// ```
-pub fn find_path_on_line_through_empty_voxels(
+pub fn find_path_through_voxels_with_l1_and_linear_heuristic(
     start: &lat::Point,
     finish: &lat::Point,
-    voxel_is_empty: impl Fn(&lat::Point) -> bool,
+    predicate: impl Fn(&lat::Point) -> bool,
     max_iterations: usize,
 ) -> (bool, Vec<lat::Point>) {
     #[cfg(feature = "profiler")]
-    profile_scope!("find_path_on_line_through_empty_voxels");
+    profile_scope!("find_path_through_voxels_with_l1_and_linear_heuristic");
 
     let LatPoint3(start_float) = (*start).into();
     let LatPoint3(finish_float) = (*finish).into();
@@ -102,5 +102,5 @@ pub fn find_path_on_line_through_empty_voxels(
         unsafe { NotNan::unchecked_new(exact + 0.001 * line_dist) }
     };
 
-    find_path_though_voxels(start, finish, voxel_is_empty, heuristic, max_iterations)
+    find_path_through_voxels(start, finish, predicate, heuristic, max_iterations)
 }

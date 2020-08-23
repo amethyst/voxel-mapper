@@ -6,7 +6,10 @@ use voxel_mapper::{
     },
     geometry::{project_point_onto_line, Line, UP},
     voxel::{
-        search::{find_path_on_line_through_empty_voxels, find_path_through_empty_voxels},
+        search::{
+            find_path_through_voxels_with_l1_and_linear_heuristic,
+            find_path_through_voxels_with_l1_heuristic,
+        },
         voxel_containing_point, voxel_is_empty, LatPoint3, VoxelMap,
     },
 };
@@ -182,7 +185,7 @@ impl CollidingController {
         // Graph search away from the target to get as close to the camera as possible. It's OK if
         // we don't reach the camera, since we'll still return the path that got closest.
         let path_finish = voxel_containing_point(&camera);
-        let (_reached_finish, path) = find_path_on_line_through_empty_voxels(
+        let (_reached_finish, path) = find_path_through_voxels_with_l1_and_linear_heuristic(
             path_start,
             &path_finish,
             voxel_is_empty_fn,
@@ -216,7 +219,7 @@ impl CollidingController {
         for (range, _) in unobstructed_ranges.iter() {
             let point_in_range = find_start_of_sphere_cast_in_range(path, range);
             let closeness = if let Some(previous_camera) = self.previous_camera_voxel.as_ref() {
-                let (_reached_finish, path) = find_path_through_empty_voxels(
+                let (_reached_finish, path) = find_path_through_voxels_with_l1_heuristic(
                     previous_camera,
                     &point_in_range,
                     voxel_is_empty_fn,
@@ -340,7 +343,7 @@ fn point_is_obstructed(
         let voxel_p_proj = voxel_containing_point(&p_proj);
         if voxel_is_empty_fn(&voxel_p_proj) {
             // Projection must still be path-connected to empty space.
-            let (connected, _) = find_path_through_empty_voxels(
+            let (connected, _) = find_path_through_voxels_with_l1_heuristic(
                 &voxel_p_proj,
                 p,
                 voxel_is_empty_fn,
