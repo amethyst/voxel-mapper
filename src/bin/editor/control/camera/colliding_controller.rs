@@ -437,8 +437,12 @@ mod tests {
 
         let start = [-20, 0, 0].into();
         let finish = [100, 0, 0].into();
-        let (reached_finish, path) =
-            find_path_on_line_through_empty_voxels(&start, &finish, &voxel_is_empty_fn, 300);
+        let (reached_finish, path) = find_path_through_voxels_with_l1_and_linear_heuristic(
+            &start,
+            &finish,
+            &voxel_is_empty_fn,
+            300,
+        );
         assert!(reached_finish);
 
         let ranges = find_unobstructed_ranges(&path, &eye_line, &voxel_is_empty_fn, &TEST_CONFIG);
