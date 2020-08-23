@@ -8,9 +8,10 @@
         min_radius: 1.0,
         max_radius: 100.0,
         smoothing_weight: 0.9,
+        target_height_above_feet: 3.0,
         collision: (
-            ball_radius: 1.0,
-            min_obstruction_width: 2.0,
+            ball_radius: 2.0,
+            min_obstruction_width: 1.0,
             not_worth_searching_dist: 4.0,
             max_search_iterations: 2000,
             projection_connection_max_iterations: 10,

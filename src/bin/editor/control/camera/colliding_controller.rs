@@ -79,7 +79,7 @@ impl CollidingController {
             true,
         );
         // Figure out where the camera target is.
-        cam_state.target = cam_state.feet + Vector3::from(UP);
+        cam_state.target = cam_state.feet + config.target_height_above_feet * Vector3::from(UP);
 
         self.set_desired_camera_position(input, config, &mut cam_state);
 

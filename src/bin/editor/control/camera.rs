@@ -74,6 +74,8 @@ pub struct ThirdPersonControlConfig {
     pub min_radius: f32,
     pub max_radius: f32,
     pub smoothing_weight: f32,
+    /// The distance from the camera feet to the target (along the Y axis).
+    pub target_height_above_feet: f32,
     pub collision: CameraCollisionConfig,
 }
 
