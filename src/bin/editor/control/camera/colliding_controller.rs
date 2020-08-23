@@ -44,6 +44,10 @@ pub struct CameraCollisionConfig {
     camera_lock_threshold: f32,
     /// When the camera is locked to a fixed distance from the target, this is that distance.
     camera_lock_radius: f32,
+    /// Used to as the offset from the end of a path range for choosing where to start a sphere cast
+    /// inside that range. The hope is that we won't choose a point so close to the end of the range
+    /// that the sphere is immediately colliding with something.
+    range_point_selection_offset: usize,
 }
 
 /// Resolves collisions to prevent occluding the target.
@@ -217,7 +221,11 @@ impl CollidingController {
         let mut best_point_closeness = std::usize::MAX;
 
         for (range, _) in unobstructed_ranges.iter() {
-            let point_in_range = find_start_of_sphere_cast_in_range(path, range);
+            let point_in_range = find_start_of_sphere_cast_in_range(
+                path,
+                range,
+                config.range_point_selection_offset,
+            );
             let closeness = if let Some(previous_camera) = self.previous_camera_voxel.as_ref() {
                 let (_reached_finish, path) = find_path_through_voxels_with_l1_heuristic(
                     previous_camera,
@@ -261,16 +269,15 @@ impl CollidingController {
     }
 }
 
-/// Used to as the offset from the end of a path range for choosing where to start a sphere cast
-/// inside that range. The hope is that we won't choose a point so close to the end of the range
-/// that the sphere is immediately colliding with something.
-const NOT_TOO_CLOSE_OFFSET: usize = 4;
-
 /// Choose the point in the range that has the best chance of casting the sphere farthest, i.e. a
 /// point that's close to the end of the range, but not too close.
-fn find_start_of_sphere_cast_in_range(path: &[lat::Point], path_range: &[usize; 2]) -> lat::Point {
-    let chosen_index = if path_range[1] - path_range[0] > NOT_TOO_CLOSE_OFFSET {
-        path_range[1] - NOT_TOO_CLOSE_OFFSET
+fn find_start_of_sphere_cast_in_range(
+    path: &[lat::Point],
+    path_range: &[usize; 2],
+    selection_offset: usize,
+) -> lat::Point {
+    let chosen_index = if path_range[1] - path_range[0] > selection_offset {
+        path_range[1] - selection_offset
     } else {
         path_range[0]
     };

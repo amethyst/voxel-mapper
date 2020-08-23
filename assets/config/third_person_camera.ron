@@ -17,6 +17,7 @@
             projection_connection_max_iterations: 10,
             camera_lock_threshold: 2.0,
             camera_lock_radius: 0.8,
+            range_point_selection_offset: 4,
         )
     ),
 )
