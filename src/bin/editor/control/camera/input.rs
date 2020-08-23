@@ -9,7 +9,7 @@ use amethyst::{
         Transform,
     },
     input::{BindingTypes, InputEvent, InputHandler, ScrollDirection},
-    renderer::camera::Projection,
+    renderer::camera::Camera,
     window::ScreenDimensions,
     winit::MouseButton,
 };
@@ -75,7 +75,7 @@ impl InputProcessor {
         input: &InputHandler<B>,
         events: &[InputEvent<B>],
         floor_plane: &Plane,
-        camera: &Projection,
+        camera: &Camera,
         camera_tfm: &Transform,
         screen_dims: &ScreenDimensions,
     ) -> ProcessedInput
@@ -122,7 +122,7 @@ impl InputProcessor {
 
 fn floor_drag_translation(
     floor_plane: &Plane,
-    camera: &Projection,
+    camera: &Camera,
     camera_tfm: &Transform,
     dims: &ScreenDimensions,
     cursor_pos: Point2<f32>,

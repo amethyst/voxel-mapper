@@ -13,7 +13,7 @@ path = "src/lib.rs"
 
 [dependencies]
 # Currently staying at 0.15.0 until the screen_ray bug is fixed (probably until legion, really)
-amethyst = { git = "https://github.com/amethyst/amethyst", tag = "v0.15.0" }
+amethyst = { git = "https://github.com/amethyst/amethyst", tag = "v0.15.3" }
 bincode = "1.3.1"
 indexmap = "1.5"
 itertools = "0.9.0"

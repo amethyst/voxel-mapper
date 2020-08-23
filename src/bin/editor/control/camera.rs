@@ -130,7 +130,7 @@ where
                 &self.input_handler,
                 events,
                 &tpc_state.floor_plane(),
-                cam.projection(),
+                cam,
                 cam_tfm,
                 &self.screen_dims,
             );
