@@ -265,12 +265,16 @@ impl CollidingController {
 /// Used to as the offset from the end of a path range for choosing where to start a sphere cast
 /// inside that range. The hope is that we won't choose a point so close to the end of the range
 /// that the sphere is immediately colliding with something.
-const NOT_TOO_CLOSE_OFFSET: usize = 2;
+const NOT_TOO_CLOSE_OFFSET: usize = 4;
 
 /// Choose the point in the range that has the best chance of casting the sphere farthest, i.e. a
 /// point that's close to the end of the range, but not too close.
 fn find_start_of_sphere_cast_in_range(path: &[lat::Point], path_range: &[usize; 2]) -> lat::Point {
-    let chosen_index = (path_range[1] - NOT_TOO_CLOSE_OFFSET).max(path_range[0]);
+    let chosen_index = if path_range[1] - path_range[0] > NOT_TOO_CLOSE_OFFSET {
+        path_range[1] - NOT_TOO_CLOSE_OFFSET
+    } else {
+        path_range[0]
+    };
 
     path[chosen_index]
 }
@@ -289,7 +293,7 @@ fn find_unobstructed_ranges(
     let mut try_add_range =
         |end_index: usize, p_proj: Point3<f32>, range_start: &mut Option<(usize, f32)>| {
             if let Some((start_index, start_dist)) = *range_start {
-                if end_index - start_index >= NOT_TOO_CLOSE_OFFSET {
+                if end_index > start_index {
                     let end_dist = (p_proj - eye_line.p).norm();
                     unobstructed_ranges.push(([start_index, end_index], [start_dist, end_dist]))
                 }
