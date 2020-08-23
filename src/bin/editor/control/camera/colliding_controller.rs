@@ -19,10 +19,6 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "profiler")]
 use thread_profiler::profile_scope;
 
-// BUG: it's possible for the camera to get behind walls if the camera target doesn't leave enough
-// space; this could be fixed by pushing the feet away from walls or always keeping some minimum
-// distance from walls in the floor_translation module
-
 /// Constant parameters for tuning the camera collision controller.
 #[derive(Deserialize, Serialize)]
 pub struct CameraCollisionConfig {
