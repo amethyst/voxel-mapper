@@ -31,7 +31,7 @@ def save_response_content(response, destination):
 
 if __name__ == "__main__":
     import sys
-    if len(sys.argv) is not 3:
+    if len(sys.argv) != 3:
         print("Usage: python google_drive.py drive_file_id destination_file_path")
     else:
         # TAKE ID FROM SHAREABLE LINK
