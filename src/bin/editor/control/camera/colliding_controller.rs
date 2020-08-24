@@ -429,13 +429,15 @@ mod tests {
     use super::*;
 
     const TEST_CONFIG: CameraCollisionConfig = CameraCollisionConfig {
-        ball_radius: 1.0,
-        min_obstruction_width: 3.0,
+        ball_radius: 2.0,
+        min_obstruction_width: 1.0,
+        min_range_length: 4.0,
         not_worth_searching_dist: 4.0,
         max_search_iterations: 2000,
         projection_connection_max_iterations: 10,
         camera_lock_threshold: 2.0,
         camera_lock_radius: 0.8,
+        range_point_selection_offset: 4,
     };
 
     #[test]
@@ -464,7 +466,8 @@ mod tests {
             diff.dot(&diff) > (TEST_CONFIG.min_obstruction_width as i32 + 1).pow(2)
         };
 
-        let eye_line = Line::from_endpoints(Point3::new(0.0, 0.0, 0.0), Point3::new(1.0, 0.0, 0.0));
+        let eye_line =
+            Line::from_endpoints(Point3::new(-20.0, 0.0, 0.0), Point3::new(100.0, 0.0, 0.0));
 
         let start = [-20, 0, 0].into();
         let finish = [100, 0, 0].into();
@@ -477,6 +480,8 @@ mod tests {
         assert!(reached_finish);
 
         let ranges = find_unobstructed_ranges(&path, &eye_line, &voxel_is_empty_fn, &TEST_CONFIG);
+
+        println!("ranges = {:?}", ranges);
 
         assert_eq!(ranges.len(), 2);
 
