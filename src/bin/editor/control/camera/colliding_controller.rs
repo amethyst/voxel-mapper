@@ -6,17 +6,14 @@ use voxel_mapper::{
     },
     geometry::{project_point_onto_line, Line, UP},
     voxel::{
-        search::{
-            find_path_through_voxels_with_l1_and_linear_heuristic,
-            find_path_through_voxels_with_l1_heuristic,
-        },
-        voxel_containing_point, voxel_is_empty, IsFloor, LatPoint3,
+        search::find_path_through_voxels_with_l1_and_linear_heuristic, voxel_containing_point,
+        voxel_is_empty, IsFloor, LatPoint3,
     },
 };
 
 use amethyst::core::math::{Point3, Vector3};
 use ilattice3 as lat;
-use ilattice3::prelude::*;
+use ilattice3::{algos::find_path_through_voxels_with_l1_heuristic, prelude::*};
 use ncollide3d::query::TOI;
 use serde::{Deserialize, Serialize};
 
