@@ -10,12 +10,13 @@ use voxel_mapper::{
             find_path_through_voxels_with_l1_and_linear_heuristic,
             find_path_through_voxels_with_l1_heuristic,
         },
-        voxel_containing_point, voxel_is_empty, LatPoint3, VoxelMap,
+        voxel_containing_point, voxel_is_empty, IsFloor, LatPoint3,
     },
 };
 
 use amethyst::core::math::{Point3, Vector3};
 use ilattice3 as lat;
+use ilattice3::prelude::*;
 use ncollide3d::query::TOI;
 use serde::{Deserialize, Serialize};
 
@@ -69,27 +70,27 @@ impl CollidingController {
         }
     }
 
-    pub fn apply_input(
+    pub fn apply_input<V, T>(
         &mut self,
         config: &ThirdPersonControlConfig,
         mut cam_state: ThirdPersonCameraState,
         input: &ProcessedInput,
-        voxel_map: &VoxelMap,
+        voxels: &V,
         voxel_bvt: &VoxelBVT,
-    ) -> ThirdPersonCameraState {
+    ) -> ThirdPersonCameraState
+    where
+        V: MaybeGetWorldRef<Data = T>,
+        T: IsEmpty + IsFloor,
+    {
         // Figure out the where the camera feet are.
-        cam_state.feet = translate_over_floor(
-            &cam_state.feet,
-            &input.feet_translation,
-            &voxel_map.voxels,
-            true,
-        );
+        cam_state.feet =
+            translate_over_floor(&cam_state.feet, &input.feet_translation, voxels, true);
         // Figure out where the camera target is.
         cam_state.target = cam_state.feet + config.target_height_above_feet * Vector3::from(UP);
 
         set_desired_camera_position(input, self.colliding, config, &mut cam_state);
 
-        let voxel_is_empty_fn = |p: &lat::Point| voxel_is_empty(&voxel_map.voxels, p);
+        let voxel_is_empty_fn = |p: &lat::Point| voxel_is_empty(voxels, p);
         self.resolve_camera_collisions(
             &config.collision,
             &voxel_is_empty_fn,
