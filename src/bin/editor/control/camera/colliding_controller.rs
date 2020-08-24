@@ -225,36 +225,10 @@ impl CollidingController {
         let mut best_point = None;
         let mut best_point_closeness = std::usize::MAX;
 
-        // If the camera is really close to the target, it might not show up in the unobstructed
-        // ranges, due to min_range_length, but we still want to consider it.
-        if let Some(target_point) = self.last_empty_feet_point {
-            let target_closeness =
-                if let Some(previous_camera) = self.previous_camera_voxel.as_ref() {
-                    let (_reached_finish, path) = find_path_through_voxels_with_l1_heuristic(
-                        &target_point,
-                        previous_camera,
-                        voxel_is_empty_fn,
-                        config.max_search_iterations,
-                    );
-
-                    path.len()
-                } else {
-                    std::usize::MAX
-                };
-
-            best_point = Some(target_point);
-            best_point_closeness = target_closeness;
-        }
-
-        for (range, _) in unobstructed_ranges.iter() {
-            let point_in_range = find_start_of_sphere_cast_in_range(
-                path,
-                range,
-                config.range_point_selection_offset,
-            );
-            let closeness = if let Some(previous_camera) = self.previous_camera_voxel.as_ref() {
+        let range_point_closeness = |point_in_range: &lat::Point| {
+            if let Some(previous_camera) = self.previous_camera_voxel.as_ref() {
                 let (_reached_finish, path) = find_path_through_voxels_with_l1_heuristic(
-                    &point_in_range,
+                    point_in_range,
                     previous_camera,
                     voxel_is_empty_fn,
                     config.max_search_iterations,
@@ -263,19 +237,39 @@ impl CollidingController {
                 path.len()
             } else {
                 0
-            };
-            // Must be closer than the current best point.
-            if closeness < best_point_closeness {
-                best_point_closeness = closeness;
-                best_point = Some(point_in_range);
+            }
+        };
+
+        if let Some((first_range, _)) = unobstructed_ranges.first() {
+            if first_range[0] != 0 {
+                // If the camera is really close to the target, it might not show up in the
+                // unobstructed ranges, due to min_range_length, but we still want to consider it.
+                if let Some(target_point) = self.last_empty_feet_point {
+                    let closeness = range_point_closeness(&target_point);
+                    if closeness < best_point_closeness {
+                        // Use the target point to start the sphere cast.
+                        best_point_closeness = closeness;
+                        best_point = Some(eye_line.p);
+                    }
+                }
             }
         }
 
-        best_point.map(|p| {
-            let LatPoint3(p) = p.into();
+        for (range, _) in unobstructed_ranges.iter() {
+            let point_in_range = find_start_of_sphere_cast_in_range(
+                path,
+                range,
+                config.range_point_selection_offset,
+            );
+            let closeness = range_point_closeness(&point_in_range);
+            if closeness < best_point_closeness {
+                best_point_closeness = closeness;
+                let LatPoint3(p) = point_in_range.into();
+                best_point = Some(project_point_onto_line(&p, eye_line));
+            }
+        }
 
-            project_point_onto_line(&p, eye_line)
-        })
+        best_point
     }
 
     fn set_last_empty_feet_voxel(
