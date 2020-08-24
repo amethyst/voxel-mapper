@@ -87,7 +87,7 @@ impl CollidingController {
         // Figure out where the camera target is.
         cam_state.target = cam_state.feet + config.target_height_above_feet * Vector3::from(UP);
 
-        self.set_desired_camera_position(input, config, &mut cam_state);
+        set_desired_camera_position(input, self.colliding, config, &mut cam_state);
 
         let voxel_is_empty_fn = |p: &lat::Point| voxel_is_empty(&voxel_map.voxels, p);
         self.resolve_camera_collisions(
@@ -98,31 +98,6 @@ impl CollidingController {
         );
 
         cam_state
-    }
-
-    fn set_desired_camera_position(
-        &self,
-        input: &ProcessedInput,
-        config: &ThirdPersonControlConfig,
-        cam_state: &mut ThirdPersonCameraState,
-    ) {
-        // Rotate around the target.
-        cam_state.add_yaw(input.delta_yaw);
-        cam_state.add_pitch(input.delta_pitch);
-
-        // Scale the camera's distance from the target.
-        if input.radius_scalar > 1.0 {
-            // Don't move the camera if it's colliding.
-            if !self.colliding {
-                cam_state.scale_radius(input.radius_scalar, config);
-            }
-        } else if input.radius_scalar < 1.0 {
-            // If the desired radius is longer than actual because of collision, just truncate it
-            // so the camera moves as soon as the player starts shortening the radius.
-            cam_state.set_radius(cam_state.get_actual_radius(), config);
-
-            cam_state.scale_radius(input.radius_scalar, config);
-        }
     }
 
     fn resolve_camera_collisions(
@@ -139,8 +114,8 @@ impl CollidingController {
         self.set_last_empty_feet_voxel(voxel_is_empty_fn, feet_voxel);
         let empty_path_start = self.last_empty_feet_point.clone().unwrap();
 
-        // We always try to find a short path around voxels that occlude the target before doing
-        // the sphere cast.
+        // We always try to find a path around voxels that occlude the target before doing the
+        // sphere cast.
         let sphere_cast_start = self.find_start_of_sphere_cast(
             &empty_path_start,
             cam_state.target,
@@ -214,6 +189,8 @@ impl CollidingController {
         .unwrap_or(target)
     }
 
+    /// For each unobstructed range, choose a point in that range as a member of the candidate set.
+    /// From that set, take the candidate which is closest to the previous camera position.
     fn find_start_of_sphere_cast_in_ranges(
         &self,
         unobstructed_ranges: &[([usize; 2], [f32; 2])],
@@ -285,6 +262,31 @@ impl CollidingController {
         } else {
             self.last_empty_feet_point = Some(new_feet);
         }
+    }
+}
+
+fn set_desired_camera_position(
+    input: &ProcessedInput,
+    colliding: bool,
+    config: &ThirdPersonControlConfig,
+    cam_state: &mut ThirdPersonCameraState,
+) {
+    // Rotate around the target.
+    cam_state.add_yaw(input.delta_yaw);
+    cam_state.add_pitch(input.delta_pitch);
+
+    // Scale the camera's distance from the target.
+    if input.radius_scalar > 1.0 {
+        // Don't move the camera if it's colliding.
+        if !colliding {
+            cam_state.scale_radius(input.radius_scalar, config);
+        }
+    } else if input.radius_scalar < 1.0 {
+        // If the desired radius is longer than actual because of collision, just truncate it
+        // so the camera moves as soon as the player starts shortening the radius.
+        cam_state.set_radius(cam_state.get_actual_radius(), config);
+
+        cam_state.scale_radius(input.radius_scalar, config);
     }
 }
 

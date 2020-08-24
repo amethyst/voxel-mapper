@@ -156,8 +156,8 @@ pub fn yaw_and_pitch_from_vector(v: &Vector3<f32>) -> (f32, f32) {
     (yaw, pitch)
 }
 
-pub fn vector_from_yaw_and_pitch(yaw: f32, pitch: f32) -> Vector3<f32> {
-    let mut ray: Vector3<f32> = Vector3::z_axis().into_inner();
+pub fn unit_vector_from_yaw_and_pitch(yaw: f32, pitch: f32) -> Vector3<f32> {
+    let mut ray = Vector3::z_axis().into_inner();
     let y_axis = Vector3::y_axis();
     ray = Rotation3::from_axis_angle(&y_axis, yaw) * ray;
     let pitch_axis = Unit::new_unchecked(ray.cross(&y_axis));
@@ -174,7 +174,7 @@ pub struct PolarVector {
 
 impl PolarVector {
     pub fn unit_vector(self) -> Vector3<f32> {
-        vector_from_yaw_and_pitch(self.yaw, self.pitch)
+        unit_vector_from_yaw_and_pitch(self.yaw, self.pitch)
     }
 
     pub fn set_vector(&mut self, v: &Vector3<f32>) {
