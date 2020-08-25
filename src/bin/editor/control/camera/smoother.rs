@@ -9,8 +9,8 @@ pub struct TransformSmoother {
 
 impl TransformSmoother {
     pub fn new(weight: f32) -> Self {
-        assert!(0.0 < weight);
-        assert!(weight <= 1.0);
+        assert!(0.0 <= weight);
+        assert!(weight < 1.0);
 
         TransformSmoother {
             weight,
@@ -18,7 +18,7 @@ impl TransformSmoother {
         }
     }
 
-    pub fn new_transform(&mut self, new_state: &ThirdPersonCameraState) -> Transform {
+    pub fn smooth_transform(&mut self, new_state: &ThirdPersonCameraState) -> Transform {
         let old_lerp_state = self.lerp_state.unwrap_or(*new_state);
 
         let lerp_pos = self.weight * old_lerp_state.actual_position.coords

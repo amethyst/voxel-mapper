@@ -40,8 +40,8 @@ impl CameraController for FinalController {
             &voxel_map.voxels,
             voxel_bvt,
         );
-        let new_tfm = self.smoother.new_transform(&new_camera_state);
+        let smooth_tfm = self.smoother.smooth_transform(&new_camera_state);
 
-        (new_tfm, new_camera_state)
+        (smooth_tfm, new_camera_state)
     }
 }
