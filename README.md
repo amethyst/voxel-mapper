@@ -62,6 +62,7 @@ Planned features (by priority):
 4. shadows
 5. procedural generation
 6. dynamic voxel types (e.g. water, foliage)
-7. beautiful example maps
-8. level of detail
-9. texture detiling
+7. GPU acceleration of voxel algorithms
+8. beautiful example maps
+9. level of detail
+10. texture detiling
