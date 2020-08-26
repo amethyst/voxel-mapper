@@ -6,8 +6,8 @@ use voxel_mapper::{
     },
     geometry::{project_point_onto_line, Line, UP},
     voxel::{
-        search::find_path_through_voxels_with_l1_and_linear_heuristic, voxel_containing_point,
-        voxel_is_empty, IsFloor, LatPoint3,
+        search::find_path_through_voxels_with_l1_and_linear_heuristic, voxel_center,
+        voxel_containing_point, voxel_is_empty, IsFloor,
     },
 };
 
@@ -239,8 +239,10 @@ impl CollidingController {
             let closeness = range_point_closeness(&point_in_range);
             if closeness < best_point_closeness {
                 best_point_closeness = closeness;
-                let LatPoint3(p) = point_in_range.into();
-                best_point = Some(project_point_onto_line(&p, eye_line));
+                best_point = Some(project_point_onto_line(
+                    &voxel_center(&point_in_range),
+                    eye_line,
+                ));
             }
         }
 
@@ -330,10 +332,10 @@ fn find_unobstructed_ranges(
         };
 
     for (i, p) in path.iter().enumerate() {
-        let LatPoint3(p_float) = (*p).into();
-        let p_proj = project_point_onto_line(&p_float, &eye_line);
+        let p_center = voxel_center(p);
+        let p_proj = project_point_onto_line(&p_center, &eye_line);
 
-        if point_is_obstructed(p, &p_float, &p_proj, voxel_is_empty_fn, config) {
+        if point_is_obstructed(p, &p_center, &p_proj, voxel_is_empty_fn, config) {
             try_add_range(i, p_proj, &mut current_range_start);
         } else if let None = current_range_start {
             // We're no longer obstructed, so start a new range.
@@ -343,10 +345,9 @@ fn find_unobstructed_ranges(
 
     // Finish off the last range.
     if let Some(p) = path.last() {
-        let LatPoint3(p_float) = (*p).into();
         try_add_range(
             path.len(),
-            project_point_onto_line(&p_float, &eye_line),
+            project_point_onto_line(&voxel_center(p), &eye_line),
             &mut current_range_start,
         );
     }
