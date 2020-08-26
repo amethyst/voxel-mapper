@@ -7,12 +7,11 @@ use amethyst::core::math::{Point3, Vector3};
 use ilattice3 as lat;
 use ilattice3::prelude::*;
 use itertools::Itertools;
-use ncollide3d::query::Ray;
 
 /// Returns all numbers `t` such that `bias + slope * t` is an integer and `t_0 <= t <= t_f`.
 /// Always returns empty vector for constant (`slope == 0.0`) functions, even if the constant is an
 /// integer (since there would be infinite solutions for `t`).
-fn integer_points_on_line_1d(slope: f32, bias: f32, t_0: f32, t_f: f32) -> Vec<f32> {
+fn integer_points_on_line_segment_1d(slope: f32, bias: f32, t_0: f32, t_f: f32) -> Vec<f32> {
     debug_assert!(t_0 < t_f, "Invalid time range");
 
     let mut solutions = Vec::new();
@@ -37,20 +36,20 @@ fn integer_points_on_line_1d(slope: f32, bias: f32, t_0: f32, t_f: f32) -> Vec<f
     solutions
 }
 
-fn integer_point_on_line_3d(
+fn integer_points_on_line_segment_3d(
     start: &Point3<f32>,
     velocity: &Vector3<f32>,
     t_0: f32,
     t_f: f32,
 ) -> Vec<f32> {
     let mut solutions = Vec::new();
-    solutions.append(&mut integer_points_on_line_1d(
+    solutions.append(&mut integer_points_on_line_segment_1d(
         velocity.x, start.x, t_0, t_f,
     ));
-    solutions.append(&mut integer_points_on_line_1d(
+    solutions.append(&mut integer_points_on_line_segment_1d(
         velocity.y, start.y, t_0, t_f,
     ));
-    solutions.append(&mut integer_points_on_line_1d(
+    solutions.append(&mut integer_points_on_line_segment_1d(
         velocity.z, start.z, t_0, t_f,
     ));
     solutions.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -65,11 +64,10 @@ where
     V: MaybeGetWorldRef<Data = T>,
     T: IsFloor,
 {
-    let p_is_not_floor = if let Some(p_voxel) = voxels.maybe_get_world_ref(p) {
-        !p_voxel.is_floor()
-    } else {
-        true
-    };
+    let p_is_not_floor = voxels
+        .maybe_get_world_ref(p)
+        .map(|p_voxel| !p_voxel.is_floor())
+        .unwrap_or(true);
 
     if p_is_not_floor {
         let under_p = *p - [0, 1, 0].into();
@@ -124,12 +122,12 @@ where
     V: MaybeGetWorldRef<Data = T>,
     T: IsFloor,
 {
-    let ray = Ray::new(*start, *velocity);
     let up = Vector3::from(UP);
 
     // To detect when the point crosses a voxel boundary, get all of the points on the line segment
     // with any integer coordinates.
-    let voxel_boundary_times = integer_point_on_line_3d(start, velocity, 0.0, 1.0);
+    // PERF: use an iterator instead of collecting all of these points at the start
+    let voxel_boundary_times = integer_points_on_line_segment_3d(start, velocity, 0.0, 1.0);
     let mut boundary_points: Vec<(f32, Point3<f32>)> = voxel_boundary_times
         .into_iter()
         .map(|t| (t, start + t * velocity))
@@ -139,7 +137,8 @@ where
 
     // Translate the point up and down as it travels over floor voxels.
     let mut height_delta = 0;
-    for ((t1, p1), (_, p2)) in boundary_points.iter().tuple_windows() {
+    let mut last_good_point = *start;
+    for ((_, p1), (_, p2)) in boundary_points.iter().tuple_windows() {
         // Since we have points on voxel boundaries, it's hard to say what voxel we're leaving or
         // entering, but we know the midpoint between boundaries will fall into the voxel we are
         // entering.
@@ -148,20 +147,22 @@ where
 
         let voxel_p = midpoint_voxel + [0, height_delta, 0].into();
 
-        let dh = if let Some(voxel) = voxels.maybe_get_world_ref(&voxel_p) {
-            let probe_dir = if voxel.is_floor() { 1 } else { -1 };
+        let dh = voxels
+            .maybe_get_world_ref(&voxel_p)
+            .map(|voxel| {
+                let probe_dir = if voxel.is_floor() { 1 } else { -1 };
 
-            vertical_probe(probe_dir, &voxel_p, voxels)
-        } else {
-            None
-        };
+                vertical_probe(probe_dir, &voxel_p, voxels)
+            })
+            .flatten();
 
         if let Some(dh) = dh {
             height_delta += dh;
+            last_good_point = midpoint;
         } else {
             // Probing failed, so just stop.
             if blocking_collisions {
-                return ray.point_at(*t1) + (height_delta as f32) * up;
+                return last_good_point + (height_delta as f32) * up;
             } else {
                 continue;
             }
@@ -191,19 +192,25 @@ mod tests {
     };
 
     #[test]
-    fn test_no_integer_points_on_line_1d() {
-        assert_relative_eq_vec(&integer_points_on_line_1d(0.5, 0.0, 0.1, 0.2), &vec![]);
+    fn test_no_integer_points_on_line_segment_1d() {
+        assert_relative_eq_vec(
+            &integer_points_on_line_segment_1d(0.5, 0.0, 0.1, 0.2),
+            &vec![],
+        );
     }
 
     #[test]
     fn test_starting_integer_point_on_line() {
-        assert_relative_eq_vec(&integer_points_on_line_1d(0.5, 0.0, 0.0, 1.0), &vec![0.0]);
+        assert_relative_eq_vec(
+            &integer_points_on_line_segment_1d(0.5, 0.0, 0.0, 1.0),
+            &vec![0.0],
+        );
     }
 
     #[test]
     fn test_starting_and_ending_integer_point_on_line() {
         assert_relative_eq_vec(
-            &integer_points_on_line_1d(0.5, 0.0, 0.0, 2.0),
+            &integer_points_on_line_segment_1d(0.5, 0.0, 0.0, 2.0),
             &vec![0.0, 2.0],
         );
     }
@@ -211,7 +218,7 @@ mod tests {
     #[test]
     fn test_one_integer_point_on_line_before_full_interval_1d() {
         assert_relative_eq_vec(
-            &integer_points_on_line_1d(0.5, 0.99, 0.0, 0.1),
+            &integer_points_on_line_segment_1d(0.5, 0.99, 0.0, 0.1),
             &vec![0.01 / 0.5],
         );
     }
@@ -219,7 +226,7 @@ mod tests {
     #[test]
     fn test_two_integer_point_on_line_before_two_full_intervals_1d() {
         assert_relative_eq_vec(
-            &integer_points_on_line_1d(0.5, 0.99, 0.0, 2.5),
+            &integer_points_on_line_segment_1d(0.5, 0.99, 0.0, 2.5),
             &vec![0.01 / 0.5, 1.01 / 0.5],
         );
     }
@@ -227,7 +234,7 @@ mod tests {
     #[test]
     fn test_one_integer_point_on_line_with_negative_slope_1d() {
         assert_relative_eq_vec(
-            &integer_points_on_line_1d(-0.5, 0.0, 0.0, 2.0),
+            &integer_points_on_line_segment_1d(-0.5, 0.0, 0.0, 2.0),
             &vec![0.0, 2.0],
         );
     }
