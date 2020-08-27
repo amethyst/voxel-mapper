@@ -452,7 +452,7 @@ mod tests {
 
         let ranges = find_unobstructed_ranges(&path, &eye_line, &voxel_is_empty_fn, &TEST_CONFIG);
 
-        assert_eq!(ranges, vec![([0, 10], [0.0, 9.0])]);
+        assert_eq!(ranges, vec![([0, 10], [0.0, 9.5])]);
     }
 
     #[test]

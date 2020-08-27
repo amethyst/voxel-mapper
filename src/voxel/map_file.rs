@@ -1,6 +1,8 @@
 use crate::{
     assets::{read_bincode_file, write_bincode_file, BincodeFileError},
-    voxel::{VoxelInfo, VoxelMap, VoxelPaletteAssets, VOXEL_CHUNK_SIZE},
+    voxel::{
+        map_generators::generate_dungeon, VoxelInfo, VoxelMap, VoxelPaletteAssets, VOXEL_CHUNK_SIZE,
+    },
 };
 
 use amethyst::config::Config;
@@ -11,16 +13,27 @@ use std::path::Path;
 #[derive(Deserialize, Serialize)]
 pub struct VoxelMapFile {
     palette_spec: VoxelPaletteSpec,
-    voxels_file_path: Option<String>,
+    voxels_file_path: Option<(VoxelsFileType, String)>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub enum VoxelsFileType {
+    Bincode,
+    ProcGenDungeon,
 }
 
 pub fn load_voxel_map(path: impl AsRef<Path>) -> Result<VoxelMap, BincodeFileError> {
     // TODO: gosh I guess we should have another error type
-    let spec: VoxelMapFile = Config::load(path).expect("Failed to load VoxelMapFile");
-    let map = if let Some(voxel_file_path) = spec.voxels_file_path {
-        read_bincode_file(voxel_file_path)?
-    } else {
-        ChunkedLatticeMap::new(VOXEL_CHUNK_SIZE)
+    let spec: VoxelMapFile = Config::load(path).unwrap();
+    let map = match spec.voxels_file_path {
+        Some((VoxelsFileType::Bincode, path)) => read_bincode_file(path)?,
+        Some((VoxelsFileType::ProcGenDungeon, path)) => {
+            // TODO: don't hardcode this
+            let voxel_type_map = [0, 2];
+
+            generate_dungeon(path, voxel_type_map).unwrap()
+        }
+        None => ChunkedLatticeMap::new(VOXEL_CHUNK_SIZE),
     };
     let voxels = ChunkedPaletteLatticeMap {
         map,

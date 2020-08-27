@@ -1,0 +1,32 @@
+(
+    seed: (1, 1, 1, 10),
+    room_graph: (
+        num_rooms: 100,
+        entrance_to_objective_path_length: 6,
+    ),
+    room_dist: (
+        location: (
+            x: (-250, 250),
+            y: (-250, 250),
+            z: (-250, 250),
+        ),
+        size: (
+            x: (
+                mean: 50,
+                std_dev: 25,
+            ),
+            y: (
+                mean: 30,
+                std_dev: 25,
+            ),
+            z: (
+                mean: 50,
+                std_dev: 25,
+            ),
+        ),
+    ),
+    min_room_dim: 50,
+    max_room_dim: 150,
+    min_door_dim: 15,
+    max_door_dim: 30,
+)

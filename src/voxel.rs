@@ -6,6 +6,7 @@ pub mod chunk_processor;
 pub mod double_buffer;
 pub mod editor;
 pub mod map_file;
+pub mod map_generators;
 pub mod meshing;
 pub mod search;
 
