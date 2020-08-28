@@ -1,12 +1,12 @@
 use crate::voxel::{voxel_aabb, Voxel, VoxelInfo};
 
+use fnv::FnvHashMap;
 use ilattice3 as lat;
 use ilattice3::{algos::find_surface_voxels, prelude::*, ChunkedPaletteLatticeMap, Extent};
 use ncollide3d::{
-    bounding_volume::{BoundingVolume, AABB},
-    partitioning::{DBVTLeaf, DBVTNodeId, BVH, DBVT},
+    bounding_volume::AABB,
+    partitioning::{DBVTLeaf, DBVTLeafId, DBVTNodeId, BVH, DBVT},
 };
-use std::collections::HashMap;
 
 #[cfg(feature = "profiler")]
 use thread_profiler::profile_scope;
@@ -18,20 +18,28 @@ use thread_profiler::profile_scope;
 /// chunk update, where we only have to find surface voxels, which is already how the meshes are
 /// updated.
 ///
-/// To that end, this structure is basically just a hash map from chunk ID to BVT, and it keeps the
-/// root AABB up to date. You can treat it like a regular BVH though.
+/// To that end, this is a BVH with two layers of DBVT:
+///
+///          DBVT of chunks
+///          /    ...    \
+///    chunk id       chunk id   ---> hash map -->   DBVT of voxels in chunk
+///                                                 /         ...          \
+///                                              voxel                    voxel
+///
+/// The "top BVT" leaf nodes should never be used externally, as they will be forwarded to the root
+/// of a "chunk BVT."
 pub struct VoxelBVT {
-    root_aabb: Option<AABB<f32>>,
-    root_children_keys: Vec<[i32; 3]>, // sorted, unique
-    chunk_bvts: HashMap<lat::Point, ChunkBVT>,
+    top_bvt: LatticeBVT,
+    chunk_bvts: FnvHashMap<lat::Point, (DBVTLeafId, LatticeBVT)>,
 }
 
-// For some reason, it's faster to insert all point into a DBVT than to construct a new BVT.
-pub type ChunkBVT = DBVT<f32, lat::Point, AABB<f32>>;
+// It's faster to insert all points into a DBVT than to construct a new BVT, since the BVT will try
+// to balance the tree.
+pub type LatticeBVT = DBVT<f32, lat::Point, AABB<f32>>;
 
 #[derive(Clone, Copy, Debug)]
 pub enum VoxelBVTNode {
-    Root,
+    Top(DBVTNodeId),
     Chunk(lat::Point, DBVTNodeId),
 }
 
@@ -39,35 +47,59 @@ impl BVH<lat::Point, AABB<f32>> for VoxelBVT {
     type Node = VoxelBVTNode;
 
     fn root(&self) -> Option<Self::Node> {
-        self.root_aabb.as_ref().map(|_| VoxelBVTNode::Root)
+        self.top_bvt.root().map(|r| VoxelBVTNode::Top(r))
     }
 
-    fn child(&self, i: usize, node: Self::Node) -> Self::Node {
+    fn child(&self, child_num: usize, node: Self::Node) -> Self::Node {
         match node {
-            VoxelBVTNode::Root => {
-                let chunk_key: lat::Point = self.root_children_keys[i].into();
+            VoxelBVTNode::Top(DBVTNodeId::Internal(node_num)) => VoxelBVTNode::Top(
+                self.top_bvt
+                    .child(child_num, DBVTNodeId::Internal(node_num)),
+            ),
+            VoxelBVTNode::Top(DBVTNodeId::Leaf(node_num)) => {
+                let (chunk_key, chunk_bvt) = self.forward_top_leaf(node_num);
 
-                VoxelBVTNode::Chunk(chunk_key, self.chunk_bvts[&chunk_key].root().unwrap())
+                VoxelBVTNode::Chunk(
+                    chunk_key,
+                    chunk_bvt.child(child_num, chunk_bvt.root().unwrap()),
+                )
             }
-            VoxelBVTNode::Chunk(chunk_key, bvt_id) => {
-                VoxelBVTNode::Chunk(chunk_key, self.chunk_bvts[&chunk_key].child(i, bvt_id))
-            }
+            VoxelBVTNode::Chunk(chunk_key, chunk_bvt_id) => VoxelBVTNode::Chunk(
+                chunk_key,
+                self.chunk_bvts[&chunk_key].1.child(child_num, chunk_bvt_id),
+            ),
         }
     }
 
     fn num_children(&self, node: Self::Node) -> usize {
         match node {
-            VoxelBVTNode::Root => self.root_children_keys.len(),
-            VoxelBVTNode::Chunk(chunk_key, bvt_id) => {
-                self.chunk_bvts[&chunk_key].num_children(bvt_id)
+            VoxelBVTNode::Top(DBVTNodeId::Internal(node_num)) => {
+                self.top_bvt.num_children(DBVTNodeId::Internal(node_num))
+            }
+            VoxelBVTNode::Top(DBVTNodeId::Leaf(node_num)) => {
+                let (_, chunk_bvt) = self.forward_top_leaf(node_num);
+
+                chunk_bvt.num_children(chunk_bvt.root().unwrap())
+            }
+            VoxelBVTNode::Chunk(chunk_key, chunk_bvt_id) => {
+                self.chunk_bvts[&chunk_key].1.num_children(chunk_bvt_id)
             }
         }
     }
 
     fn content(&self, node: Self::Node) -> (&AABB<f32>, Option<&lat::Point>) {
         match node {
-            VoxelBVTNode::Root => (self.root_aabb.as_ref().unwrap(), None),
-            VoxelBVTNode::Chunk(chunk_key, bvt_id) => self.chunk_bvts[&chunk_key].content(bvt_id),
+            VoxelBVTNode::Top(DBVTNodeId::Internal(node_num)) => {
+                self.top_bvt.content(DBVTNodeId::Internal(node_num))
+            }
+            VoxelBVTNode::Top(DBVTNodeId::Leaf(node_num)) => {
+                let (_, chunk_bvt) = self.forward_top_leaf(node_num);
+
+                chunk_bvt.content(chunk_bvt.root().unwrap())
+            }
+            VoxelBVTNode::Chunk(chunk_key, chunk_bvt_id) => {
+                self.chunk_bvts[&chunk_key].1.content(chunk_bvt_id)
+            }
         }
     }
 }
@@ -75,52 +107,36 @@ impl BVH<lat::Point, AABB<f32>> for VoxelBVT {
 impl VoxelBVT {
     pub fn new() -> Self {
         VoxelBVT {
-            root_aabb: None,
-            root_children_keys: Vec::new(),
-            chunk_bvts: HashMap::new(),
+            top_bvt: DBVT::new(),
+            chunk_bvts: FnvHashMap::default(),
         }
     }
 
-    pub fn insert_chunk(&mut self, chunk_key: lat::Point, new_bvt: ChunkBVT) {
-        // Grow the root AABB.
-        let new_bvt_root_aabb = new_bvt.root_bounding_volume().unwrap();
-        self.root_aabb = self
-            .root_aabb
-            .as_ref()
-            .map(|bv| bv.merged(new_bvt_root_aabb))
-            .or(Some(new_bvt_root_aabb.clone()));
-
-        self.chunk_bvts.insert(chunk_key, new_bvt);
-        if let Err(insert_pos) = self.root_children_keys.binary_search(&chunk_key.into()) {
-            self.root_children_keys.insert(insert_pos, chunk_key.into());
+    pub fn insert_chunk(&mut self, chunk_key: lat::Point, new_bvt: LatticeBVT) {
+        let bv = new_bvt.root_bounding_volume().unwrap().clone();
+        let top_leaf_id = self.top_bvt.insert(DBVTLeaf::new(bv, chunk_key));
+        if let Some((old_chunk_leaf, _)) = self.chunk_bvts.insert(chunk_key, (top_leaf_id, new_bvt))
+        {
+            self.top_bvt.remove(old_chunk_leaf);
         }
     }
 
-    pub fn remove_chunk(&mut self, chunk_key: &lat::Point) -> Option<ChunkBVT> {
-        if let Some(removed) = self.chunk_bvts.remove(chunk_key) {
-            if let Ok(remove_pos) = self.root_children_keys.binary_search(&(*chunk_key).into()) {
-                self.root_children_keys.remove(remove_pos);
-            }
+    pub fn remove_chunk(&mut self, chunk_key: &lat::Point) -> Option<LatticeBVT> {
+        self.chunk_bvts
+            .remove(chunk_key)
+            .map(|(leaf_id, chunk_bvt)| {
+                self.top_bvt.remove(leaf_id);
 
-            // Re-merge the remaining chunk AABBs to shrink the root AABB.
-            self.root_aabb = self.merge_all_chunk_aabbs();
-
-            Some(removed)
-        } else {
-            None
-        }
+                chunk_bvt
+            })
     }
 
-    fn merge_all_chunk_aabbs(&self) -> Option<AABB<f32>> {
-        let mut merged: Option<AABB<f32>> = None;
-        for bvt in self.chunk_bvts.values() {
-            let bvt_aabb = bvt.root_bounding_volume().unwrap();
-            merged = merged
-                .map(|m| m.merged(bvt_aabb))
-                .or(Some(bvt_aabb.clone()));
-        }
+    // Go straight from the top-layer leaf node to a bottom-layer root node.
+    fn forward_top_leaf(&self, leaf_node_num: usize) -> (lat::Point, &LatticeBVT) {
+        let (_, chunk_key) = self.top_bvt.content(DBVTNodeId::Leaf(leaf_node_num));
+        let chunk_key = chunk_key.unwrap();
 
-        merged
+        (*chunk_key, &self.chunk_bvts[chunk_key].1)
     }
 }
 
@@ -134,7 +150,7 @@ pub fn insert_all_chunk_bvts(bvt: &mut VoxelBVT, map: &ChunkedPaletteLatticeMap<
     }
 }
 
-pub fn generate_chunk_bvt<V, T, I>(voxels: &V, extent: &Extent) -> Option<ChunkBVT>
+pub fn generate_chunk_bvt<V, T, I>(voxels: &V, extent: &Extent) -> Option<LatticeBVT>
 where
     V: GetLinearRef<Data = T> + HasIndexer<Indexer = I>,
     T: IsEmpty,

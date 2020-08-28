@@ -1,6 +1,6 @@
 use crate::{
     assets::IndexedPosColorNormVertices,
-    collision::voxel_bvt::{generate_chunk_bvt, ChunkBVT, VoxelBVT},
+    collision::voxel_bvt::{generate_chunk_bvt, LatticeBVT, VoxelBVT},
     voxel::{
         double_buffer::DirtyChunks,
         meshing::{
@@ -61,7 +61,7 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
 
         let generated_chunks: Vec<(
             lat::Point,
-            Option<ChunkBVT>,
+            Option<LatticeBVT>,
             Option<IndexedPosColorNormVertices>,
         )> = chunks_to_generate
             .into_par_iter()
