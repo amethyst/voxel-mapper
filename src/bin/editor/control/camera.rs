@@ -129,6 +129,7 @@ where
             let proc_input = input_proc.process_input(
                 &self.input_handler,
                 events,
+                &tpc_state.drag_plane(),
                 &tpc_state.floor_plane(),
                 cam,
                 cam_tfm,

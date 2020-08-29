@@ -5,7 +5,7 @@ use voxel_mapper::geometry::{
 use amethyst::{
     core::{
         ecs::prelude::*,
-        math::{Point2, Vector3},
+        math::{Point2, UnitQuaternion, Vector3},
         Transform,
     },
     input::{BindingTypes, InputEvent, InputHandler, ScrollDirection},
@@ -74,6 +74,7 @@ impl InputProcessor {
         &mut self,
         input: &InputHandler<B>,
         events: &[InputEvent<B>],
+        drag_plane: &Plane,
         floor_plane: &Plane,
         camera: &Camera,
         camera_tfm: &Transform,
@@ -99,6 +100,7 @@ impl InputProcessor {
 
             if input.mouse_button_is_down(MouseButton::Left) {
                 feet_translation = floor_drag_translation(
+                    drag_plane,
                     floor_plane,
                     camera,
                     camera_tfm,
@@ -121,6 +123,7 @@ impl InputProcessor {
 }
 
 fn floor_drag_translation(
+    drag_plane: &Plane,
     floor_plane: &Plane,
     camera: &Camera,
     camera_tfm: &Transform,
@@ -131,17 +134,22 @@ fn floor_drag_translation(
     let prev_screen_ray = screen_ray(camera, camera_tfm, dims, prev_cursor_pos);
     let screen_ray = screen_ray(camera, camera_tfm, dims, cursor_pos);
 
-    _floor_drag_translation(floor_plane, &prev_screen_ray, &screen_ray)
+    let translation = _floor_drag_translation(drag_plane, &prev_screen_ray, &screen_ray);
+
+    // Rotate the translation into the XZ (floor) plane.
+    let rot = UnitQuaternion::rotation_between(&drag_plane.n, &floor_plane.n).unwrap();
+
+    rot * translation
 }
 
 fn _floor_drag_translation(
-    floor_plane: &Plane,
+    drag_plane: &Plane,
     prev_screen_ray: &Line,
     screen_ray: &Line,
 ) -> Vector3<f32> {
-    let p_now = line_plane_intersection(screen_ray, floor_plane);
+    let p_now = line_plane_intersection(screen_ray, drag_plane);
     if let LinePlaneIntersection::IntersectionPoint(p_now) = p_now {
-        let p_prev = line_plane_intersection(prev_screen_ray, floor_plane);
+        let p_prev = line_plane_intersection(prev_screen_ray, drag_plane);
         if let LinePlaneIntersection::IntersectionPoint(p_prev) = p_prev {
             return p_prev - p_now;
         }

@@ -106,4 +106,12 @@ impl ThirdPersonCameraState {
             n: Vector3::from(UP),
         }
     }
+
+    pub fn drag_plane(&self) -> Plane {
+        // Avoid having the eye vector being coplanar, which causes headaches for the floor dragging
+        // controls.
+        let n = self.eye_vec.unit_vector();
+
+        Plane { p: self.feet, n }
+    }
 }
