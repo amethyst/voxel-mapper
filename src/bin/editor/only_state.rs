@@ -45,7 +45,7 @@ impl SimpleState for OnlyState {
         let StateData { world, .. } = data;
 
         world.insert(PaintBrush {
-            radius: 8,
+            radius: 20,
             voxel_address: 1,
             dist_from_camera: None,
         });
@@ -75,8 +75,8 @@ impl SimpleState for OnlyState {
 
         // Make sure the camera position is not too close to the target, or you won't see anything
         // on start.
-        let cam_position = Point3::new(0.0, 20.0, 0.0);
-        let cam_target = Point3::new(0.0, 10.0, 0.0);
+        let cam_position = Point3::new(0.0, 50.0, 0.0);
+        let cam_target = Point3::new(0.0, 5.0, 0.0);
         make_camera(cam_position, cam_target, world);
 
         make_camera_feet_lines(world);

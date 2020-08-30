@@ -58,43 +58,45 @@ fn integer_points_on_line_segment_3d(
     solutions
 }
 
-/// True if the voxel at `p` is not a floor voxel AND the voxel directly under `p` is a floor voxel.
-fn point_is_on_top_of_floor<V, T>(p: &lat::Point, voxels: &V) -> bool
+fn voxel_is_floor<V, T>(p: &lat::Point, voxels: &V) -> bool
 where
     V: MaybeGetWorldRef<Data = T>,
     T: IsFloor,
 {
-    let p_is_not_floor = voxels
+    voxels
         .maybe_get_world_ref(p)
-        .map(|p_voxel| !p_voxel.is_floor())
-        .unwrap_or(true);
+        .map(|p_voxel| p_voxel.is_floor())
+        .unwrap_or(false)
+}
 
-    if p_is_not_floor {
+/// True if the voxel at `p` is not a floor voxel AND the voxel directly under `p` is a floor voxel.
+fn voxel_is_on_top_of_floor<V, T>(p: &lat::Point, voxels: &V) -> bool
+where
+    V: MaybeGetWorldRef<Data = T>,
+    T: IsFloor,
+{
+    if !voxel_is_floor(p, voxels) {
         let under_p = *p - [0, 1, 0].into();
-        let under_p_is_floor = if let Some(voxel) = voxels.maybe_get_world_ref(&under_p) {
-            voxel.is_floor()
-        } else {
-            false
-        };
-
-        return under_p_is_floor;
+        return voxel_is_floor(&under_p, voxels);
     }
 
     false
 }
 
-const MAX_PROBE_ITERS: usize = 10;
+const MAX_PROBE_ITERS: i32 = 10;
 
 // POTENTIAL BUG: can skip over non-floor voxels in a column
-fn vertical_probe<V, T>(dir: i32, start: &lat::Point, voxels: &V) -> Option<i32>
+fn vertical_probe<V, T>(vertical_iters: i32, start: &lat::Point, voxels: &V) -> Option<i32>
 where
     V: MaybeGetWorldRef<Data = T>,
     T: IsFloor,
 {
+    let dir = vertical_iters.signum();
+    let probe_iters = vertical_iters.abs();
     let mut p = *start;
     let mut dh = 0;
-    for _ in 0..MAX_PROBE_ITERS {
-        if point_is_on_top_of_floor(&p, voxels) {
+    for _ in 0..probe_iters {
+        if voxel_is_on_top_of_floor(&p, voxels) {
             return Some(dh);
         }
         p = p + [0, dir, 0].into();
@@ -124,10 +126,24 @@ where
 {
     let up = Vector3::from(UP);
 
+    let mut start = *start;
+    let start_voxel = voxel_containing_point(&start);
+
+    // Sometimes geometry gets created on top of the camera feet, so just probe out of it.
+    if voxel_is_floor(&start_voxel, voxels) {
+        if let Some(dh) = vertical_probe(100, &start_voxel, voxels) {
+            start += dh as f32 * up;
+        }
+    } else if !voxel_is_on_top_of_floor(&start_voxel, voxels) {
+        if let Some(dh) = vertical_probe(-100, &start_voxel, voxels) {
+            start += dh as f32 * up;
+        }
+    }
+
     // To detect when the point crosses a voxel boundary, get all of the points on the line segment
     // with any integer coordinates.
     // PERF: use an iterator instead of collecting all of these points at the start
-    let voxel_boundary_times = integer_points_on_line_segment_3d(start, velocity, 0.0, 1.0);
+    let voxel_boundary_times = integer_points_on_line_segment_3d(&start, velocity, 0.0, 1.0);
     let mut boundary_points: Vec<(f32, Point3<f32>)> = voxel_boundary_times
         .into_iter()
         .map(|t| (t, start + t * velocity))
@@ -137,7 +153,7 @@ where
 
     // Translate the point up and down as it travels over floor voxels.
     let mut height_delta = 0;
-    let mut last_good_point = *start;
+    let mut last_good_point = start;
     for ((_, p1), (_, p2)) in boundary_points.iter().tuple_windows() {
         // Since we have points on voxel boundaries, it's hard to say what voxel we're leaving or
         // entering, but we know the midpoint between boundaries will fall into the voxel we are
@@ -150,9 +166,13 @@ where
         let dh = voxels
             .maybe_get_world_ref(&voxel_p)
             .map(|voxel| {
-                let probe_dir = if voxel.is_floor() { 1 } else { -1 };
+                let probe_vector = if voxel.is_floor() {
+                    MAX_PROBE_ITERS
+                } else {
+                    -MAX_PROBE_ITERS
+                };
 
-                vertical_probe(probe_dir, &voxel_p, voxels)
+                vertical_probe(probe_vector, &voxel_p, voxels)
             })
             .flatten();
 
