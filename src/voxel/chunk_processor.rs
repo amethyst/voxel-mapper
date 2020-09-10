@@ -47,7 +47,6 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
         #[cfg(feature = "profiler")]
         profile_scope!("voxel_chunk_processor");
 
-        // Do parallel isosurface generation.
         let chunks_to_generate = match dirty_chunks.take() {
             Some(c) => c.chunks,
             None => return,
@@ -59,6 +58,7 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
             ..
         } = &mut *voxel_assets;
 
+        // Do parallel isosurface generation.
         let generated_chunks: Vec<(
             lat::Point,
             Option<LatticeBVT>,

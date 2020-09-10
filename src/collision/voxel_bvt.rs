@@ -2,7 +2,7 @@ use crate::voxel::{voxel_aabb, Voxel, VoxelInfo};
 
 use fnv::FnvHashMap;
 use ilattice3 as lat;
-use ilattice3::{algos::find_surface_voxels, prelude::*, ChunkedPaletteLatticeMap, Extent};
+use ilattice3::{algos::find_surface_voxels, prelude::*, PaletteLatticeMap, Extent};
 use ncollide3d::{
     bounding_volume::AABB,
     partitioning::{DBVTLeaf, DBVTLeafId, DBVTNodeId, BVH, DBVT},
@@ -140,7 +140,7 @@ impl VoxelBVT {
     }
 }
 
-pub fn insert_all_chunk_bvts(bvt: &mut VoxelBVT, map: &ChunkedPaletteLatticeMap<VoxelInfo, Voxel>) {
+pub fn insert_all_chunk_bvts(bvt: &mut VoxelBVT, map: &PaletteLatticeMap<VoxelInfo, Voxel>) {
     for (key, chunk) in map.iter_chunks_with_boundary() {
         if let Some(new_bvt) = generate_chunk_bvt(&chunk, chunk.get_extent()) {
             bvt.insert_chunk(*key, new_bvt);

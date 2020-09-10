@@ -19,7 +19,7 @@ use amethyst::{
 };
 use ilattice3 as lat;
 use ilattice3::{
-    normal::closest_normal, prelude::*, ChunkedPaletteLatticeMap, GetPaletteAddress, IsEmpty,
+    normal::closest_normal, prelude::*, PaletteLatticeMap, GetPaletteAddress, IsEmpty,
 };
 use ilattice3_mesh::GreedyQuadsVoxel;
 use ncollide3d::{bounding_volume::AABB, shape::Cuboid};
@@ -102,7 +102,7 @@ pub fn decode_distance(encoded: i8) -> f32 {
 
 pub struct VoxelMap {
     pub palette_assets: VoxelPaletteAssets,
-    pub voxels: ChunkedPaletteLatticeMap<VoxelInfo, Voxel>,
+    pub voxels: PaletteLatticeMap<VoxelInfo, Voxel>,
 }
 
 pub fn voxel_is_empty<V, T>(voxels: &V, p: &lat::Point) -> bool

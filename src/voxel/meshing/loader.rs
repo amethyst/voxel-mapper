@@ -7,7 +7,7 @@ use crate::{
 
 use amethyst::{assets::ProgressCounter, core::ecs::prelude::*};
 use ilattice3 as lat;
-use ilattice3::ChunkedPaletteLatticeMap;
+use ilattice3::PaletteLatticeMap;
 use std::collections::HashMap;
 
 /// Loads the vertices for chunks into `ChunkMesh` objects.
@@ -30,7 +30,7 @@ pub struct VoxelMeshes {
 impl<'a> VoxelMeshLoader<'a> {
     pub fn start_loading_all_chunks(
         &mut self,
-        voxels: &ChunkedPaletteLatticeMap<VoxelInfo, Voxel>,
+        voxels: &PaletteLatticeMap<VoxelInfo, Voxel>,
         progress: &mut ProgressCounter,
     ) -> VoxelMeshes {
         let chunk_meshes = voxels

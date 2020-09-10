@@ -6,7 +6,7 @@ use crate::{
 };
 
 use amethyst::config::Config;
-use ilattice3::{ChunkedLatticeMap, ChunkedPaletteLatticeMap};
+use ilattice3::{ChunkedLatticeMap, PaletteLatticeMap};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -35,7 +35,7 @@ pub fn load_voxel_map(path: impl AsRef<Path>) -> Result<VoxelMap, BincodeFileErr
         }
         None => ChunkedLatticeMap::new(VOXEL_CHUNK_SIZE),
     };
-    let voxels = ChunkedPaletteLatticeMap {
+    let voxels = PaletteLatticeMap {
         map,
         palette: spec.palette_spec.infos,
     };
