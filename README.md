@@ -46,23 +46,25 @@ To use the voxel mapper in your own Amethyst app, you'll need to:
 
 It's early days for this project. These features are currently supported:
 
-- (de)serializable, chunked voxel map
-- dynamic, smooth chunk meshing using Surface Nets
-- multiple materials
+- a voxel map that supports:
+    - real-time editing (terraforming)
+    - serialization
+    - real-time LZ4-(de)compression
+    - LRU-caching of decompressed chunks
+- real-time, smooth chunk meshing using Surface Nets
+- multiple blended materials (texture splatting)
 - physically-based, triplanar material rendering, courtesy of Amethyst
-- a voxel paintbrush
+- a mouse-based terraforming controller
 - a camera controller that resolves collisions with the voxels
-- texture splatting
 
 Planned features (by priority):
 
 1. multiple array materials
-2. memory usage scales to large scenes / draw distance
-3. more realistic texture splatting using depth textures
-4. shadows
-5. procedural generation
-6. dynamic voxel types (e.g. water, foliage)
-7. GPU acceleration of voxel algorithms
-8. beautiful example maps
-9. level of detail
-10. texture detiling
+2. more realistic texture splatting using depth textures
+3. shadows
+4. procedural generation
+5. dynamic voxel types (e.g. water, foliage)
+6. GPU acceleration of voxel algorithms
+7. beautiful example maps
+8. level of detail
+9. texture detiling
