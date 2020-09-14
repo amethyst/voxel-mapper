@@ -2,6 +2,7 @@ use crate::rendering::splatted_triplanar_pbr_pass::{ArrayMaterialId, ArrayMateri
 
 pub mod asset_loader;
 pub mod bundle;
+pub mod chunk_cache_compressor;
 pub mod chunk_cache_flusher;
 pub mod chunk_processor;
 pub mod double_buffer;
