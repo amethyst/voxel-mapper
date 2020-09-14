@@ -63,8 +63,9 @@ Planned features (by priority):
 2. more realistic texture splatting using depth textures
 3. shadows
 4. procedural generation
-5. dynamic voxel types (e.g. water, foliage)
-6. GPU acceleration of voxel algorithms
-7. beautiful example maps
-8. level of detail
-9. texture detiling
+5. streaming voxel maps from persistent storage
+6. dynamic voxel types (e.g. water, foliage)
+7. GPU acceleration of voxel algorithms
+8. beautiful example maps
+9. level of detail
+10. texture detiling
