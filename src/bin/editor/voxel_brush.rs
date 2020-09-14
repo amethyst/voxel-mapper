@@ -17,7 +17,7 @@ use amethyst::{
     shrev::EventChannel,
 };
 use ilattice3 as lat;
-use ilattice3::{prelude::*, ChunkedLatticeMap};
+use ilattice3::{prelude::*, ChunkedLatticeMap, ChunkedLatticeMapReader};
 
 #[cfg(feature = "profiler")]
 use thread_profiler::profile_scope;
@@ -176,13 +176,16 @@ fn send_request_for_sphere(
     voxels: &ChunkedLatticeMap<Voxel>,
     edit_voxel_requests: &mut EventChannel<EditVoxelsRequest>,
 ) {
+    // TODO: flush to global cache
+    let map_reader = ChunkedLatticeMapReader::new(voxels);
+
     let set_voxels = lat::Extent::from_center_and_radius(center, radius as i32 + 2)
         .into_iter()
         .filter_map(|p| {
             let diff = p - center;
             let dist = (diff.dot(&diff) as f32).sqrt() - radius as f32;
             if dist <= 1.0 {
-                let old_voxel = voxels.maybe_get_world_ref(&p).unwrap_or(&EMPTY_VOXEL);
+                let old_voxel = map_reader.maybe_get_world_ref(&p).unwrap_or(&EMPTY_VOXEL);
                 Some((
                     p,
                     determine_new_voxel(old_voxel, operation, palette_address, dist),

@@ -7,7 +7,7 @@ use crate::{
 
 use amethyst::{assets::ProgressCounter, core::ecs::prelude::*};
 use ilattice3 as lat;
-use ilattice3::PaletteLatticeMap;
+use ilattice3::{LocalChunkCache, PaletteLatticeMap};
 use std::collections::HashMap;
 
 /// Loads the vertices for chunks into `ChunkMesh` objects.
@@ -33,8 +33,11 @@ impl<'a> VoxelMeshLoader<'a> {
         voxels: &PaletteLatticeMap<VoxelInfo, Voxel>,
         progress: &mut ProgressCounter,
     ) -> VoxelMeshes {
+        // TODO: flush to global cache
+        let local_chunk_cache = LocalChunkCache::new();
+
         let chunk_meshes = voxels
-            .iter_chunks_with_boundary()
+            .iter_chunks_with_boundary(&local_chunk_cache)
             .filter_map(|(chunk_key, chunk_and_boundary)| {
                 let vertices = generate_mesh_vertices_with_surface_nets(&chunk_and_boundary);
 

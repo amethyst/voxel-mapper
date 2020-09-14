@@ -13,7 +13,7 @@ use crate::{
 
 use amethyst::{assets::ProgressCounter, core::ecs::prelude::*};
 use ilattice3 as lat;
-use ilattice3::prelude::*;
+use ilattice3::{prelude::*, LocalChunkCache};
 use rayon::prelude::*;
 
 #[cfg(feature = "profiler")]
@@ -66,8 +66,13 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
         )> = chunks_to_generate
             .into_par_iter()
             .map(|chunk_key| {
+                // TODO: flush to global cache
+                let local_chunk_cache = LocalChunkCache::new();
+
                 // TODO: figure out how to avoid copying like this; it's pretty slow
-                let chunk_voxels = map.voxels.get_chunk_and_boundary(&chunk_key);
+                let chunk_voxels = map
+                    .voxels
+                    .get_chunk_and_boundary(&chunk_key, &local_chunk_cache);
 
                 let vertices = match *mesh_mode {
                     MeshMode::SurfaceNets => {

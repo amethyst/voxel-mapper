@@ -71,7 +71,8 @@ impl<'a> System<'a> for VoxelDoubleBufferingSystem {
         for (chunk_key, chunk_voxels) in edited_chunks.into_iter() {
             map.voxels
                 .map
-                .insert_chunk(chunk_key, Chunk::with_map(chunk_voxels));
+                .chunks
+                .insert(chunk_key, Chunk::with_map(chunk_voxels));
             new_dirty_chunks.insert(chunk_key);
         }
         new_dirty_chunks.extend(neighbor_chunks.into_iter());
