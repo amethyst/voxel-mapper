@@ -27,6 +27,14 @@ impl ChunkCacheReceiver {
     }
 }
 
+// TODO: avoid flushing older data on top of newer compressed data in this scenario:
+// 1. read uncached data into local cache
+// 2. write new data
+// 3. compress data out of cache
+// 4. flush local cache
+//
+// Right now this is just unlikely because of the size of the cache and rate of compression
+
 /// A system that flushes system-local `LocalVoxelChunkCache`s. Just send your cache using the
 /// `ChunkCacheFlusher`.
 #[derive(Default)]
