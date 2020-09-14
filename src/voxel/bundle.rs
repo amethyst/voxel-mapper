@@ -1,4 +1,5 @@
 use super::{
+    chunk_cache_flusher::{ChunkCacheFlusher, ChunkCacheFlusherSystem, ChunkCacheReceiver},
     chunk_processor::{MeshMode, VoxelChunkProcessorSystem},
     double_buffer::VoxelDoubleBufferingSystem,
     editor::VoxelEditorSystemDesc,
@@ -25,6 +26,11 @@ impl<'a, 'b> SystemBundle<'a, 'b> for VoxelSystemBundle {
     ) -> Result<(), amethyst::Error> {
         world.insert(VoxelBVT::new());
         world.insert(MeshMode::SurfaceNets);
+
+        let (tx, rx) = crossbeam::channel::unbounded();
+        world.insert(ChunkCacheFlusher::new(tx));
+        world.insert(ChunkCacheReceiver::new(rx));
+        dispatcher.add(ChunkCacheFlusherSystem, "chunk_cache_flusher", &[]);
 
         dispatcher.add(VoxelEditorSystemDesc.build(world), "voxel_editor", &[]);
         dispatcher.add(VoxelChunkProcessorSystem, "voxel_chunk_processor", &[]);

@@ -2,6 +2,7 @@ use crate::rendering::splatted_triplanar_pbr_pass::{ArrayMaterialId, ArrayMateri
 
 pub mod asset_loader;
 pub mod bundle;
+pub mod chunk_cache_flusher;
 pub mod chunk_processor;
 pub mod double_buffer;
 pub mod editor;
@@ -19,12 +20,16 @@ use amethyst::{
 };
 use ilattice3 as lat;
 use ilattice3::{
-    normal::closest_normal, prelude::*, PaletteLatticeMap, GetPaletteAddress, IsEmpty,
+    normal::closest_normal, prelude::*, GetPaletteAddress, IsEmpty, LocalChunkCache,
+    PaletteLatticeMap, YLevelsIndexer,
 };
 use ilattice3_mesh::GreedyQuadsVoxel;
 use ncollide3d::{bounding_volume::AABB, shape::Cuboid};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+/// The voxel chunk cache, local to one system. Run the `
+pub type VoxelChunkCache = LocalChunkCache<Voxel, (), YLevelsIndexer>;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct VoxelFlags {
