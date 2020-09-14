@@ -20,12 +20,13 @@ use thread_profiler::profile_scope;
 ///
 /// To that end, this is a BVH with two layers of DBVT:
 ///
+/// ```text
 ///          DBVT of chunks
 ///          /    ...    \
 ///    chunk id       chunk id   ---> hash map -->   DBVT of voxels in chunk
 ///                                                 /         ...          \
 ///                                              voxel                    voxel
-///
+/// ```
 /// The "top BVT" leaf nodes should never be used externally, as they will be forwarded to the root
 /// of a "chunk BVT."
 pub struct VoxelBVT {
