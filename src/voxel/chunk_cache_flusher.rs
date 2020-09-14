@@ -1,33 +1,33 @@
-use crate::voxel::{VoxelChunkCache, VoxelMap};
+use crate::voxel::{LocalVoxelChunkCache, VoxelMap};
 
 use amethyst::core::ecs::prelude::*;
 use crossbeam::{Receiver, Sender};
 
 pub struct ChunkCacheFlusher {
-    tx: Sender<VoxelChunkCache>,
+    tx: Sender<LocalVoxelChunkCache>,
 }
 
 impl ChunkCacheFlusher {
-    pub fn new(tx: Sender<VoxelChunkCache>) -> Self {
+    pub fn new(tx: Sender<LocalVoxelChunkCache>) -> Self {
         Self { tx }
     }
 
-    pub fn flush(&self, cache: VoxelChunkCache) {
+    pub fn flush(&self, cache: LocalVoxelChunkCache) {
         self.tx.send(cache).unwrap();
     }
 }
 
 pub struct ChunkCacheReceiver {
-    rx: crossbeam::Receiver<VoxelChunkCache>,
+    rx: crossbeam::Receiver<LocalVoxelChunkCache>,
 }
 
 impl ChunkCacheReceiver {
-    pub fn new(rx: Receiver<VoxelChunkCache>) -> Self {
+    pub fn new(rx: Receiver<LocalVoxelChunkCache>) -> Self {
         Self { rx }
     }
 }
 
-/// A system that flushes system-local `VoxelChunkCache`s. Just send your cache using the
+/// A system that flushes system-local `LocalVoxelChunkCache`s. Just send your cache using the
 /// `ChunkCacheFlusher`.
 #[derive(Default)]
 pub struct ChunkCacheFlusherSystem;

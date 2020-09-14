@@ -11,6 +11,8 @@ pub struct ChunkCacheCompressorSystem;
 /// We'll reserve a little under a gigabyte for the cache.
 const MAX_CACHED_CHUNKS: usize = 1000000;
 
+// TODO: rate-limiter to avoid high frame latency
+
 impl<'a> System<'a> for ChunkCacheCompressorSystem {
     type SystemData = WriteExpect<'a, VoxelMap>;
 

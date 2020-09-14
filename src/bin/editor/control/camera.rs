@@ -12,7 +12,10 @@ pub use self::state::ThirdPersonCameraState;
 
 use self::colliding_controller::CameraCollisionConfig;
 
-use voxel_mapper::{collision::VoxelBVT, voxel::VoxelMap};
+use voxel_mapper::{
+    collision::VoxelBVT,
+    voxel::{chunk_cache_flusher::ChunkCacheFlusher, VoxelInfoMapReader, VoxelMap},
+};
 
 use amethyst::{
     config::Config,
@@ -84,7 +87,7 @@ pub trait CameraController {
         &mut self,
         camera_state: &ThirdPersonCameraState,
         input: &ProcessedInput,
-        voxel_map: &VoxelMap,
+        map_reader: &VoxelInfoMapReader,
         voxel_bvt: &VoxelBVT,
     ) -> (Transform, ThirdPersonCameraState);
 }
@@ -107,6 +110,7 @@ where
     transforms: WriteStorage<'a, Transform>,
     input_handler: Read<'a, InputHandler<B>>,
     voxel_map: ReadExpect<'a, VoxelMap>,
+    cache_flusher: ReadExpect<'a, ChunkCacheFlusher>,
     voxel_bvt: ReadExpect<'a, VoxelBVT>,
     screen_dims: ReadExpect<'a, ScreenDimensions>,
 }
@@ -135,14 +139,17 @@ where
                 cam_tfm,
                 &self.screen_dims,
             );
+            let map_reader = VoxelInfoMapReader::new(&self.voxel_map.voxels);
             let CameraControllerComponent(ctrlr) = ctrlr;
             let (new_cam_tfm, new_camera_state) =
-                ctrlr.update(&tpc_state, &proc_input, &self.voxel_map, &self.voxel_bvt);
+                ctrlr.update(&tpc_state, &proc_input, &map_reader, &self.voxel_bvt);
             *tpc_state = new_camera_state;
 
             // Make sure not to overwrite the global matrix.
             *cam_tfm.translation_mut() = *new_cam_tfm.translation();
             *cam_tfm.rotation_mut() = *new_cam_tfm.rotation();
+
+            self.cache_flusher.flush(map_reader.local_cache);
         }
     }
 }

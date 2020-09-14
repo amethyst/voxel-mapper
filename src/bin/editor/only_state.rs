@@ -9,7 +9,7 @@ use voxel_mapper::{
         asset_loader::VoxelAssetLoader,
         map_file::{load_voxel_map, save_voxel_map},
         meshing::manager::VoxelMeshManager,
-        VoxelMap,
+        LocalVoxelChunkCache, VoxelMap,
     },
 };
 
@@ -50,16 +50,20 @@ impl SimpleState for OnlyState {
             dist_from_camera: None,
         });
 
+        // TODO: eventually, we will have very large maps that we shouldn't load in entirety here
+
         let map = load_voxel_map(&self.map_file).expect("Failed to load voxel map");
+
+        let local_chunk_cache = LocalVoxelChunkCache::new();
 
         let mut assets = world.exec(|mut loader: VoxelAssetLoader| {
             let mut unused_progress = ProgressCounter::new();
 
-            loader.start_loading(&map, &mut unused_progress)
+            loader.start_loading(&map, &local_chunk_cache, &mut unused_progress)
         });
         world.exec(
             |(mut voxel_bvt, mut manager): (WriteExpect<VoxelBVT>, VoxelMeshManager)| {
-                insert_all_chunk_bvts(&mut voxel_bvt, &map.voxels);
+                insert_all_chunk_bvts(&mut voxel_bvt, &map.voxels, &local_chunk_cache);
                 manager.make_all_chunk_mesh_entities(&mut assets, &map);
             },
         );

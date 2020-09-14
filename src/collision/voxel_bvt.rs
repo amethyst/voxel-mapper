@@ -1,10 +1,8 @@
-use crate::voxel::{voxel_aabb, Voxel, VoxelInfo};
+use crate::voxel::{voxel_aabb, LocalVoxelChunkCache, Voxel, VoxelInfo};
 
 use fnv::FnvHashMap;
 use ilattice3 as lat;
-use ilattice3::{
-    algos::find_surface_voxels, prelude::*, Extent, LocalChunkCache, PaletteLatticeMap,
-};
+use ilattice3::{algos::find_surface_voxels, prelude::*, Extent, PaletteLatticeMap};
 use ncollide3d::{
     bounding_volume::AABB,
     partitioning::{DBVTLeaf, DBVTLeafId, DBVTNodeId, BVH, DBVT},
@@ -142,11 +140,12 @@ impl VoxelBVT {
     }
 }
 
-pub fn insert_all_chunk_bvts(bvt: &mut VoxelBVT, map: &PaletteLatticeMap<VoxelInfo, Voxel>) {
-    // TODO: flush to global cache
-    let local_cache = LocalChunkCache::new();
-
-    for (key, chunk) in map.iter_chunks_with_boundary(&local_cache) {
+pub fn insert_all_chunk_bvts(
+    bvt: &mut VoxelBVT,
+    map: &PaletteLatticeMap<VoxelInfo, Voxel>,
+    chunk_cache: &LocalVoxelChunkCache,
+) {
+    for (key, chunk) in map.iter_chunks_with_boundary(chunk_cache) {
         if let Some(new_bvt) = generate_chunk_bvt(&chunk, chunk.get_extent()) {
             bvt.insert_chunk(*key, new_bvt);
         } else {

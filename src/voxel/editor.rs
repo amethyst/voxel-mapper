@@ -1,4 +1,7 @@
-use crate::voxel::{double_buffer::EditedChunksBackBuffer, encode_distance, VoxelMap, EMPTY_VOXEL};
+use crate::voxel::{
+    chunk_cache_flusher::ChunkCacheFlusher, double_buffer::EditedChunksBackBuffer, encode_distance,
+    VoxelMap, EMPTY_VOXEL,
+};
 
 use amethyst::{core::ecs::prelude::*, derive::SystemDesc, shrev::EventChannel};
 use ilattice3 as lat;
@@ -45,13 +48,13 @@ impl<'a> System<'a> for VoxelEditorSystem {
         ReadExpect<'a, VoxelMap>,
         Write<'a, Option<EditedChunksBackBuffer>>,
         Read<'a, EventChannel<EditVoxelsRequest>>,
+        ReadExpect<'a, ChunkCacheFlusher>,
     );
 
-    fn run(&mut self, (map, mut backbuffer, set_events): Self::SystemData) {
+    fn run(&mut self, (map, mut backbuffer, set_events, cache_flusher): Self::SystemData) {
         #[cfg(feature = "profiler")]
         profile_scope!("voxel_editor");
 
-        // TODO: flush to global cache
         let local_chunk_cache = LocalChunkCache::new();
 
         let mut edited_chunks = HashMap::new();
@@ -99,5 +102,7 @@ impl<'a> System<'a> for VoxelEditorSystem {
             edited_chunks,
             neighbor_chunks,
         });
+
+        cache_flusher.flush(local_chunk_cache);
     }
 }

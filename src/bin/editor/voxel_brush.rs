@@ -4,10 +4,11 @@ use crate::{
 };
 
 use voxel_mapper::voxel::{
+    chunk_cache_flusher::ChunkCacheFlusher,
     chunk_processor::MeshMode,
     decode_distance,
     editor::{EditVoxelsRequest, SetVoxel},
-    voxel_containing_point, Voxel, VoxelMap, EMPTY_VOXEL,
+    voxel_containing_point, Voxel, VoxelAddressMapReader, VoxelMap, EMPTY_VOXEL,
 };
 
 use amethyst::{
@@ -17,7 +18,7 @@ use amethyst::{
     shrev::EventChannel,
 };
 use ilattice3 as lat;
-use ilattice3::{prelude::*, ChunkedLatticeMap, ChunkedLatticeMapReader};
+use ilattice3::prelude::*;
 
 #[cfg(feature = "profiler")]
 use thread_profiler::profile_scope;
@@ -58,6 +59,7 @@ impl<'a> System<'a> for VoxelBrushSystem {
         Read<'a, InputHandler<GameBindings>>,
         Read<'a, ObjectsUnderCursor>,
         ReadExpect<'a, VoxelMap>,
+        ReadExpect<'a, ChunkCacheFlusher>,
         WriteExpect<'a, PaintBrush>,
         WriteExpect<'a, MeshMode>,
         Write<'a, EventChannel<EditVoxelsRequest>>,
@@ -71,6 +73,7 @@ impl<'a> System<'a> for VoxelBrushSystem {
             input_handler,
             objects,
             voxel_map,
+            cache_flusher,
             mut brush,
             mut mesh_mode,
             mut edit_voxel_requests,
@@ -124,6 +127,8 @@ impl<'a> System<'a> for VoxelBrushSystem {
         let center = camera_ray.origin + radius * camera_ray.dir;
         let brush_center = voxel_containing_point(&center);
 
+        let map_reader = VoxelAddressMapReader::new(&voxel_map.voxels.map);
+
         let mut lock_brush_dist_from_camera = false;
         if input_handler
             .action_is_down(&ActionBinding::CreateVoxel)
@@ -135,7 +140,7 @@ impl<'a> System<'a> for VoxelBrushSystem {
                 brush_center,
                 brush.radius,
                 brush.voxel_address,
-                &voxel_map.voxels.map,
+                &map_reader,
                 &mut edit_voxel_requests,
             );
         } else if input_handler
@@ -148,7 +153,7 @@ impl<'a> System<'a> for VoxelBrushSystem {
                 brush_center,
                 brush.radius,
                 0,
-                &voxel_map.voxels.map,
+                &map_reader,
                 &mut edit_voxel_requests,
             );
         }
@@ -165,6 +170,8 @@ impl<'a> System<'a> for VoxelBrushSystem {
                     .or(dist_from_xz_point);
             }
         }
+
+        cache_flusher.flush(map_reader.local_cache);
     }
 }
 
@@ -173,12 +180,9 @@ fn send_request_for_sphere(
     center: lat::Point,
     radius: u32,
     palette_address: u8,
-    voxels: &ChunkedLatticeMap<Voxel>,
+    map_reader: &VoxelAddressMapReader,
     edit_voxel_requests: &mut EventChannel<EditVoxelsRequest>,
 ) {
-    // TODO: flush to global cache
-    let map_reader = ChunkedLatticeMapReader::new(voxels);
-
     let set_voxels = lat::Extent::from_center_and_radius(center, radius as i32 + 2)
         .into_iter()
         .filter_map(|p| {

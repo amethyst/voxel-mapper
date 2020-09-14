@@ -2,6 +2,7 @@ use crate::{
     assets::IndexedPosColorNormVertices,
     collision::voxel_bvt::{generate_chunk_bvt, LatticeBVT, VoxelBVT},
     voxel::{
+        chunk_cache_flusher::ChunkCacheFlusher,
         double_buffer::DirtyChunks,
         meshing::{
             generate_mesh_vertices_with_greedy_quads, generate_mesh_vertices_with_surface_nets,
@@ -31,6 +32,7 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
     type SystemData = (
         ReadExpect<'a, VoxelMap>,
         ReadExpect<'a, MeshMode>,
+        ReadExpect<'a, ChunkCacheFlusher>,
         Write<'a, Option<DirtyChunks>>,
         WriteExpect<'a, VoxelAssets>,
         WriteExpect<'a, VoxelBVT>,
@@ -41,7 +43,14 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
     fn run(
         &mut self,
         (
-            map, mesh_mode, mut dirty_chunks, mut voxel_assets, mut voxel_bvt, loader, mut manager
+            map,
+            mesh_mode,
+            cache_flusher,
+            mut dirty_chunks,
+            mut voxel_assets,
+            mut voxel_bvt,
+            loader,
+            mut manager,
         ): Self::SystemData,
     ) {
         #[cfg(feature = "profiler")]
@@ -66,7 +75,6 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
         )> = chunks_to_generate
             .into_par_iter()
             .map(|chunk_key| {
-                // TODO: flush to global cache
                 let local_chunk_cache = LocalChunkCache::new();
 
                 // TODO: figure out how to avoid copying like this; it's pretty slow
@@ -84,6 +92,8 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
                 };
 
                 let new_bvt = generate_chunk_bvt(&chunk_voxels, chunk_voxels.get_extent());
+
+                cache_flusher.flush(local_chunk_cache);
 
                 (chunk_key, new_bvt, vertices)
             })

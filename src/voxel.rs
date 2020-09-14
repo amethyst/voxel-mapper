@@ -21,16 +21,18 @@ use amethyst::{
 };
 use ilattice3 as lat;
 use ilattice3::{
-    normal::closest_normal, prelude::*, GetPaletteAddress, IsEmpty, LocalChunkCache,
-    PaletteLatticeMap, YLevelsIndexer,
+    normal::closest_normal, prelude::*, ChunkedLatticeMapReader, GetPaletteAddress, IsEmpty,
+    LocalChunkCache, PaletteLatticeMap, PaletteLatticeMapReader, YLevelsIndexer,
 };
 use ilattice3_mesh::GreedyQuadsVoxel;
 use ncollide3d::{bounding_volume::AABB, shape::Cuboid};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// The voxel chunk cache, local to one system. Run the `
-pub type VoxelChunkCache = LocalChunkCache<Voxel, (), YLevelsIndexer>;
+pub type LocalVoxelChunkCache = LocalChunkCache<Voxel, (), YLevelsIndexer>;
+
+pub type VoxelAddressMapReader<'a> = ChunkedLatticeMapReader<'a, Voxel, (), YLevelsIndexer>;
+pub type VoxelInfoMapReader<'a> = PaletteLatticeMapReader<'a, VoxelInfo, Voxel, (), YLevelsIndexer>;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct VoxelFlags {
