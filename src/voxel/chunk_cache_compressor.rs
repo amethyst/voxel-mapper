@@ -7,18 +7,26 @@ use amethyst::core::ecs::prelude::*;
 #[derive(Default)]
 pub struct ChunkCacheCompressorSystem;
 
-/// This constant should be correlated with the size of a chunk, which is currently 16^3 * 2 bytes.
+// These constants should be correlated with the size of a chunk, which is currently 16^3 * 2 bytes.
+
 /// We'll reserve a little under a gigabyte for the cache.
 const MAX_CACHED_CHUNKS: usize = 1000000;
-
-// TODO: rate-limiter to avoid high frame latency
+// Avoid high latency from compressing too many chunks in one frame. 8192-byte chunk compression
+// latency is around 0.1 ms.
+const MAX_COMPRESSED_PER_FRAME_PER_CORE: usize = 50;
 
 impl<'a> System<'a> for ChunkCacheCompressorSystem {
     type SystemData = WriteExpect<'a, VoxelMap>;
 
     fn run(&mut self, mut voxel_map: Self::SystemData) {
+        // PERF: compression could happen in parallel, but we'd need to add some CompressibleMap
+        // APIs
+
         let overgrowth = voxel_map.voxels.map.chunks.len_cached() as i64 - MAX_CACHED_CHUNKS as i64;
-        for _ in 0..overgrowth.max(0) {
+        for _ in 0..overgrowth
+            .max(0)
+            .min(MAX_COMPRESSED_PER_FRAME_PER_CORE as i64)
+        {
             voxel_map.voxels.map.chunks.compress_lru();
         }
     }
