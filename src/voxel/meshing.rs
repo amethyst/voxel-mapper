@@ -117,12 +117,16 @@ pub fn generate_mesh_vertices_with_greedy_quads(
         greedy_quads(&voxel_infos, &mesh_extent, &mut buffer);
     }
 
+    if buffer.num_quads() == 0 {
+        return None;
+    }
+
     // PERF: reuse these buffers between frames
     let mut mesh = PosNormMesh::default();
     let mut colors = Vec::with_capacity(4 * buffer.num_quads());
     for group in buffer.quad_groups.iter() {
         for (quad, material) in group.quads.iter() {
-            colors.push(Color(MATERIAL_WEIGHT_TABLE[material.0 as usize]));
+            colors.extend(&[Color(MATERIAL_WEIGHT_TABLE[material.0 as usize]); 4]);
             group.meta.add_quad_to_pos_norm_mesh(quad, &mut mesh);
         }
     }
