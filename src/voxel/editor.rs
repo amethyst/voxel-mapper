@@ -1,6 +1,6 @@
 use crate::voxel::{
     chunk_cache_flusher::ChunkCacheFlusher, double_buffer::EditedChunksBackBuffer, VoxelDistance,
-    VoxelMap, VoxelType, EMPTY_VOXEL,
+    VoxelMap, VoxelType, EMPTY_VOXEL, VOXEL_CHUNK_SHAPE,
 };
 
 use amethyst::{core::ecs::prelude::*, derive::SystemDesc, shrev::EventChannel};
@@ -88,8 +88,8 @@ impl<'a> System<'a> for VoxelEditorSystem {
         // We just always add the neighbors for simplicity.
         let mut neighbor_chunks = Vec::new();
         for chunk_key in edited_chunks.keys() {
-            for offset in Point3i::von_neumann_offsets().iter() {
-                neighbor_chunks.push(*chunk_key + *offset);
+            for offset in Point3i::moore_offsets().iter() {
+                neighbor_chunks.push(*chunk_key + *offset * VOXEL_CHUNK_SHAPE);
             }
         }
 
