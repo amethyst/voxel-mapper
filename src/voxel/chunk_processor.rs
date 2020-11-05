@@ -1,6 +1,5 @@
 use crate::{
     assets::IndexedPosColorNormVertices,
-    collision::voxel_bvt::{generate_chunk_bvt, LatticeBVT, VoxelBVT},
     voxel::{
         chunk_cache_flusher::ChunkCacheFlusher,
         double_buffer::DirtyChunks,
@@ -13,8 +12,10 @@ use crate::{
 };
 
 use amethyst::{assets::ProgressCounter, core::ecs::prelude::*};
-use ilattice3 as lat;
-use ilattice3::{prelude::*, LocalChunkCache};
+use building_blocks::{
+    partition::{Octree, OctreeDBVT},
+    prelude::*,
+};
 use rayon::prelude::*;
 
 #[cfg(feature = "profiler")]
@@ -35,7 +36,7 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
         ReadExpect<'a, ChunkCacheFlusher>,
         Write<'a, Option<DirtyChunks>>,
         WriteExpect<'a, VoxelAssets>,
-        WriteExpect<'a, VoxelBVT>,
+        WriteExpect<'a, OctreeDBVT<Point3i>>,
         VoxelMeshLoader<'a>,
         VoxelMeshManager<'a>,
     );
@@ -43,7 +44,7 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
     fn run(
         &mut self,
         (
-            map,
+            voxel_map,
             mesh_mode,
             cache_flusher,
             mut dirty_chunks,
@@ -67,40 +68,47 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
             ..
         } = &mut *voxel_assets;
 
-        // Do parallel isosurface generation.
-        let generated_chunks: Vec<(
-            lat::Point,
-            Option<LatticeBVT>,
-            Option<IndexedPosColorNormVertices>,
-        )> = chunks_to_generate
-            .into_par_iter()
-            .map(|chunk_key| {
-                let local_chunk_cache = LocalChunkCache::new();
+        // Do parallel processing of dirty chunks.
+        let generated_chunks: Vec<(Point3i, Octree, Option<IndexedPosColorNormVertices>)> =
+            chunks_to_generate
+                .into_par_iter()
+                .filter_map(|chunk_key| {
+                    let local_chunk_cache = LocalChunkCache3::new();
 
-                // TODO: figure out how to avoid copying like this; it's pretty slow
-                let chunk_voxels = map
-                    .voxels
-                    .get_chunk_and_boundary(&chunk_key, &local_chunk_cache);
+                    let chunk_extent = voxel_map.voxels.extent_for_chunk_at_key(&chunk_key);
 
-                let vertices = match *mesh_mode {
-                    MeshMode::SurfaceNets => {
-                        generate_mesh_vertices_with_surface_nets(&chunk_voxels)
-                    }
-                    MeshMode::GreedyQuads => {
-                        generate_mesh_vertices_with_greedy_quads(&chunk_voxels)
-                    }
-                };
+                    let vertices = match *mesh_mode {
+                        MeshMode::SurfaceNets => generate_mesh_vertices_with_surface_nets(
+                            &voxel_map,
+                            &chunk_extent,
+                            &local_chunk_cache,
+                        ),
+                        MeshMode::GreedyQuads => generate_mesh_vertices_with_greedy_quads(
+                            &voxel_map,
+                            &chunk_extent,
+                            &local_chunk_cache,
+                        ),
+                    };
 
-                let new_bvt = generate_chunk_bvt(&chunk_voxels, chunk_voxels.get_extent());
+                    let maybe_processed_chunk = voxel_map
+                        .voxels
+                        .get_chunk(chunk_key, &local_chunk_cache)
+                        .map(|chunk| {
+                            let is_empty_map =
+                                TransformMap::new(&chunk.array, voxel_map.voxel_info_transform());
+                            let new_octree = Octree::from_array3(&is_empty_map, chunk_extent);
 
-                cache_flusher.flush(local_chunk_cache);
+                            (chunk_key, new_octree, vertices)
+                        });
 
-                (chunk_key, new_bvt, vertices)
-            })
-            .collect();
+                    cache_flusher.flush(local_chunk_cache);
+
+                    maybe_processed_chunk
+                })
+                .collect();
 
         // Collect the generated results.
-        for (chunk_key, bvt, vertices) in generated_chunks.into_iter() {
+        for (chunk_key, octree, vertices) in generated_chunks.into_iter() {
             // Load the mesh.
             let mesh = {
                 #[cfg(feature = "profiler")]
@@ -111,10 +119,10 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
             };
 
             // Replace the chunk BVT.
-            if let Some(bvt) = bvt {
-                voxel_bvt.insert_chunk(chunk_key, bvt);
+            if octree.is_empty() {
+                voxel_bvt.remove(&chunk_key);
             } else {
-                voxel_bvt.remove_chunk(&chunk_key);
+                voxel_bvt.insert(chunk_key, octree);
             }
 
             // Update entities and drop old assets.

@@ -1,13 +1,8 @@
-use crate::{
-    geometry::{project_point_onto_line, Line},
-    voxel::LatPoint3,
-};
+use crate::geometry::{project_point_onto_line, Line};
 
-use ilattice3 as lat;
-use ilattice3::algos::find_path_through_voxels;
+use amethyst::core::math as na;
+use building_blocks::{prelude::*, search::greedy_path};
 use ordered_float::NotNan;
-
-// NOTE: This function is excluded from ilattice3 in order to avoid the dependency on nalgebra.
 
 /// Finds a path from `start` to `finish` along voxels. Prioritizes staying close to the
 /// line from `start` to `finish`, so you should get a path like:
@@ -25,27 +20,29 @@ use ordered_float::NotNan;
 ///               | ++++   ______|
 ///               |_______|
 /// ```
-pub fn find_path_through_voxels_with_l1_and_linear_heuristic(
-    start: &lat::Point,
-    finish: &lat::Point,
-    predicate: impl Fn(&lat::Point) -> bool,
+pub fn greedy_path_with_l1_and_linear_heuristic(
+    start: Point3i,
+    finish: Point3i,
+    predicate: impl Fn(&Point3i) -> bool,
     max_iterations: usize,
-) -> (bool, Vec<lat::Point>) {
-    let LatPoint3(start_float) = (*start).into();
-    let LatPoint3(finish_float) = (*finish).into();
-    let line = Line::from_endpoints(start_float, finish_float);
+) -> (bool, Vec<Point3i>) {
+    // TODO: amethyst is using an older version of nalgebra than building-blocks, so we can't do the
+    // simplest conversion
+    let startf = na::Point3::<f32>::from(Point3f::from(start).0);
+    let finishf = na::Point3::<f32>::from(Point3f::from(finish).0);
+    let line = Line::from_endpoints(startf, finishf);
 
-    let heuristic = |p: &lat::Point| {
-        let LatPoint3(p_float) = (*p).into();
-        let diff = finish_float - p_float;
+    let heuristic = |p: &Point3i| {
+        let pf = na::Point3::<f32>::from(Point3f::from(*p).0);
+        let diff = finishf - pf;
         let exact = diff.x.abs() + diff.y.abs() + diff.z.abs();
 
-        let p_line = project_point_onto_line(&p_float, &line);
-        let line_dist = (p_float - p_line).norm();
+        let p_line = project_point_onto_line(&pf, &line);
+        let line_dist = (pf - p_line).norm();
 
         // Break ties using disalignment metric.
         unsafe { NotNan::unchecked_new(exact + 0.001 * line_dist) }
     };
 
-    find_path_through_voxels(start, finish, predicate, heuristic, max_iterations)
+    greedy_path(&start, &finish, predicate, heuristic, max_iterations)
 }

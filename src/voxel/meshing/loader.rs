@@ -2,12 +2,11 @@ use super::generate_mesh_vertices_with_surface_nets;
 
 use crate::{
     assets::{BoundedMesh, IndexedPosColorNormVertices, MeshLoader},
-    voxel::{ArrayMaterialId, LocalVoxelChunkCache, Voxel, VoxelInfo},
+    voxel::{ArrayMaterialId, Voxel, VoxelMap},
 };
 
 use amethyst::{assets::ProgressCounter, core::ecs::prelude::*};
-use ilattice3 as lat;
-use ilattice3::PaletteLatticeMap;
+use building_blocks::prelude::*;
 use std::collections::HashMap;
 
 /// Loads the vertices for chunks into `ChunkMesh` objects.
@@ -24,20 +23,23 @@ pub struct ChunkMesh {
 
 #[derive(Default)]
 pub struct VoxelMeshes {
-    pub chunk_meshes: HashMap<lat::Point, ChunkMesh>,
+    pub chunk_meshes: HashMap<Point3i, ChunkMesh>,
 }
 
 impl<'a> VoxelMeshLoader<'a> {
     pub fn start_loading_all_chunks(
         &mut self,
-        voxels: &PaletteLatticeMap<VoxelInfo, Voxel>,
-        chunk_cache: &LocalVoxelChunkCache,
+        voxel_map: &VoxelMap,
+        chunk_cache: &LocalChunkCache3<Voxel>,
         progress: &mut ProgressCounter,
     ) -> VoxelMeshes {
-        let chunk_meshes = voxels
-            .iter_chunks_with_boundary(chunk_cache)
-            .filter_map(|(chunk_key, chunk_and_boundary)| {
-                let vertices = generate_mesh_vertices_with_surface_nets(&chunk_and_boundary);
+        let chunk_meshes = voxel_map
+            .voxels
+            .chunk_keys()
+            .filter_map(|chunk_key| {
+                let chunk_extent = voxel_map.voxels.extent_for_chunk_at_key(chunk_key);
+                let vertices =
+                    generate_mesh_vertices_with_surface_nets(voxel_map, &chunk_extent, chunk_cache);
 
                 vertices.map(|v| (*chunk_key, self.start_loading_chunk(v, progress)))
             })

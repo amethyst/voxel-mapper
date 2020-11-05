@@ -1,8 +1,7 @@
 use crate::voxel::{editor::EditVoxelsRequest, Voxel, VoxelMap};
 
 use amethyst::{core::ecs::prelude::*, shrev::EventChannel};
-use ilattice3 as lat;
-use ilattice3::{Chunk, VecLatticeMap};
+use building_blocks::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 #[cfg(feature = "profiler")]
@@ -27,13 +26,13 @@ impl EditVoxelsRequestBackBuffer {
 /// the end of a frame.
 #[derive(Default)]
 pub struct EditedChunksBackBuffer {
-    pub edited_chunks: HashMap<lat::Point, VecLatticeMap<Voxel>>,
-    pub neighbor_chunks: Vec<lat::Point>,
+    pub edited_chunks: HashMap<Point3i, Array3<Voxel>>,
+    pub neighbor_chunks: Vec<Point3i>,
 }
 
 #[derive(Default)]
 pub struct DirtyChunks {
-    pub chunks: HashSet<lat::Point>,
+    pub chunks: HashSet<Point3i>,
 }
 
 /// The system responsible for merging the `EditedChunksBackBuffer` into the `VoxelMap`. This allows
@@ -70,9 +69,8 @@ impl<'a> System<'a> for VoxelDoubleBufferingSystem {
         let mut new_dirty_chunks = HashSet::new();
         for (chunk_key, chunk_voxels) in edited_chunks.into_iter() {
             map.voxels
-                .map
                 .chunks
-                .insert(chunk_key, Chunk::with_map(chunk_voxels));
+                .insert(chunk_key, Chunk3::with_array(chunk_voxels));
             new_dirty_chunks.insert(chunk_key);
         }
         new_dirty_chunks.extend(neighbor_chunks.into_iter());

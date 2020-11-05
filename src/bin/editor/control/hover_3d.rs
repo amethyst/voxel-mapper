@@ -1,20 +1,21 @@
 use crate::control::camera::data::CameraData;
 
 use voxel_mapper::{
-    collision::{nearest_bounding_volume_ray_cast, NearestBVRayCastResult, VoxelBVT},
+    collision::VoxelBVT,
     geometry::{line_plane_intersection, Line, LinePlaneIntersection, Plane},
-    voxel::closest_face,
+    voxel::upgrade_ray,
 };
 
 use amethyst::{
-    core::{
-        ecs::prelude::*,
-        math::{Point3, Vector3},
-    },
+    core::{ecs::prelude::*, math as na},
     input::{BindingTypes, InputHandler},
 };
-use ilattice3 as lat;
-use ncollide3d::{bounding_volume::AABB, query::Ray};
+use building_blocks::{
+    core::voxel_containing_point3f,
+    partition::collision::{voxel_ray_cast, VoxelRayImpact},
+    prelude::*,
+};
+use ncollide3d::query::Ray;
 use std::marker::PhantomData;
 
 #[cfg(feature = "profiler")]
@@ -25,30 +26,25 @@ pub struct HoverObjectSystem<B> {
     bindings: PhantomData<B>,
 }
 
-// The hover objects are always tracked by ray casting the cursor's position.
-pub type VoxelRayCastResult = NearestBVRayCastResult<lat::Point, AABB<f32>>;
-
 #[derive(Clone)]
 pub struct HoverVoxel {
-    pub raycast_result: VoxelRayCastResult,
+    pub impact: VoxelRayImpact,
     pub ray: Ray<f32>,
 }
 
 impl HoverVoxel {
-    pub fn point(&self) -> &lat::Point {
-        &self.raycast_result.data
+    pub fn point(&self) -> &Point3i {
+        &self.impact.point
     }
 
     /// Returns the normal vector of the face that the ray hit first.
-    pub fn hover_face(&self) -> lat::Point {
-        let hover_p = self.ray.point_at(self.raycast_result.toi);
-
-        closest_face(self.point(), &hover_p)
+    pub fn hover_face(&self) -> Point3i {
+        voxel_containing_point3f(&self.impact.impact.normal.into())
     }
 
     /// Returns the point of the adjacent voxel that shares a face with the voxel that was hit by
     /// the ray.
-    pub fn hover_adjacent_point(&self) -> lat::Point {
+    pub fn hover_adjacent_point(&self) -> Point3i {
         *self.point() + self.hover_face()
     }
 }
@@ -56,7 +52,7 @@ impl HoverVoxel {
 #[derive(Default)]
 pub struct ObjectsUnderCursor {
     // A point on the XZ plane.
-    pub xz_plane: Option<Point3<f32>>,
+    pub xz_plane: Option<na::Point3<f32>>,
     // The closest voxel on the camera ray.
     pub voxel: Option<HoverVoxel>,
 }
@@ -87,16 +83,14 @@ where
         };
 
         // Check for intersection with a voxel.
-        let voxel_result = nearest_bounding_volume_ray_cast(&*voxel_bvt, &ray, |_| true);
-        objects.voxel = voxel_result.map(|raycast_result| HoverVoxel {
-            raycast_result,
-            ray,
-        });
+        let max_toi = std::f32::MAX;
+        let voxel_impact = voxel_ray_cast(&*voxel_bvt, upgrade_ray(ray), max_toi, |_| true);
+        objects.voxel = voxel_impact.map(|impact| HoverVoxel { impact, ray });
 
         // Check for intersection with the XZ plane.
         let xz_plane = Plane {
-            p: Point3::new(0.0, 0.0, 0.0),
-            n: Vector3::new(0.0, 1.0, 0.0),
+            p: na::Point3::new(0.0, 0.0, 0.0),
+            n: na::Vector3::new(0.0, 1.0, 0.0),
         };
         let ray_line = Line {
             p: ray.origin,

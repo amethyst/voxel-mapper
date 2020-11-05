@@ -1,11 +1,12 @@
 use super::{
     colliding_controller::CollidingController, input::ProcessedInput, smoother::TransformSmoother,
-    CameraController, ThirdPersonCameraState, ThirdPersonControlConfig,
+    ThirdPersonCameraState, ThirdPersonControlConfig,
 };
 
-use voxel_mapper::{collision::VoxelBVT, voxel::VoxelInfoMapReader};
+use voxel_mapper::{collision::VoxelBVT, voxel::IsFloor};
 
 use amethyst::core::Transform;
+use building_blocks::prelude::*;
 
 pub struct FinalController {
     control_config: ThirdPersonControlConfig,
@@ -23,21 +24,23 @@ impl FinalController {
             smoother,
         }
     }
-}
 
-impl CameraController for FinalController {
-    fn update(
+    pub fn update<V, T>(
         &mut self,
         camera_state: &ThirdPersonCameraState,
         input: &ProcessedInput,
-        map_reader: &VoxelInfoMapReader,
+        voxels: &V,
         voxel_bvt: &VoxelBVT,
-    ) -> (Transform, ThirdPersonCameraState) {
+    ) -> (Transform, ThirdPersonCameraState)
+    where
+        V: for<'r> Get<&'r Point3i, Data = T>,
+        T: IsEmpty + IsFloor,
+    {
         let new_camera_state = self.colliding_controller.apply_input(
             &self.control_config,
             *camera_state,
             input,
-            map_reader,
+            voxels,
             voxel_bvt,
         );
         let smooth_tfm = self.smoother.smooth_transform(&new_camera_state);

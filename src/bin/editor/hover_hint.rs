@@ -1,12 +1,12 @@
 use crate::control::hover_3d::ObjectsUnderCursor;
 
-use voxel_mapper::voxel::{voxel_containing_point, LatPoint3};
+use voxel_mapper::voxel::voxel_containing_point;
 
 use amethyst::{
-    core::ecs::prelude::*,
+    core::{ecs::prelude::*, math as na},
     renderer::{debug_drawing::DebugLinesComponent, palette::Srgba},
 };
-use ilattice3 as lat;
+use building_blocks::core::prelude::*;
 
 #[derive(Default)]
 pub struct HoverHintTag;
@@ -42,8 +42,10 @@ impl<'a> System<'a> for HoverHintSystem {
             } else {
                 continue;
             };
-            let LatPoint3(box_min) = box_p.into();
-            let LatPoint3(box_max) = (box_p + lat::Point::new(1, 1, 1)).into();
+            // TODO: amethyst is using an older version of nalgebra than building-blocks, so we
+            // can't do the simplest conversion
+            let box_min: na::Point3<f32> = Point3f::from(box_p).0.into();
+            let box_max = box_min + na::Vector3::new(1.0, 1.0, 1.0);
             lines.add_box(box_min, box_max, Srgba::new(1.0, 0.0, 1.0, 1.0));
         }
     }

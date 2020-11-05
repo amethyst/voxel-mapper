@@ -3,6 +3,5 @@
     module_levels: [
         ("voxel_mapper::voxel::meshing::chunk_processor", Debug),
         ("voxel_mapper::voxel::map_file", Debug),
-        ("ilattice3_procgen", Info),
     ],
 )

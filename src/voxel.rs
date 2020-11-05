@@ -8,7 +8,7 @@ pub mod chunk_processor;
 pub mod double_buffer;
 pub mod editor;
 pub mod map_file;
-pub mod map_generators;
+//pub mod map_generators;
 pub mod meshing;
 pub mod search;
 
@@ -16,30 +16,89 @@ use meshing::loader::VoxelMeshes;
 
 use amethyst::{
     assets::{Handle, Prefab},
-    core::math::{zero, Isometry3, Point3, Vector3},
+    core::math as na,
     renderer::formats::mtl::MaterialPrefab,
 };
-use ilattice3 as lat;
-use ilattice3::{
-    normal::closest_normal, prelude::*, ChunkedLatticeMapReader, GetPaletteAddress, IsEmpty,
-    LocalChunkCache, PaletteLatticeMap, PaletteLatticeMapReader, YLevelsIndexer,
+use building_blocks::{
+    core::voxel_containing_point3f,
+    mesh::{MaterialVoxel, SignedDistance},
+    partition::ncollide3d as nc_new,
+    prelude::*,
 };
-use ilattice3_mesh::GreedyQuadsVoxel;
-use ncollide3d::{bounding_volume::AABB, shape::Cuboid};
+use ncollide3d as nc_old;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub type LocalVoxelChunkCache = LocalChunkCache<Voxel, (), YLevelsIndexer>;
+/// The global source of truth for voxels in the current map.
+pub struct VoxelMap {
+    pub voxels: ChunkMap3<Voxel>,
+    pub palette: VoxelPalette,
+}
 
-pub type VoxelAddressMapReader<'a> = ChunkedLatticeMapReader<'a, Voxel, (), YLevelsIndexer>;
-pub type VoxelInfoMapReader<'a> = PaletteLatticeMapReader<'a, VoxelInfo, Voxel, (), YLevelsIndexer>;
+impl VoxelMap {
+    pub fn voxel_info_transform<'a>(&'a self) -> impl Fn(Voxel) -> &'a VoxelInfo {
+        move |v: Voxel| self.palette.get_voxel_type_info(v.voxel_type)
+    }
+}
 
+/// The data actually stored in each point of the voxel map.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-pub struct VoxelFlags {
-    /// Whether the voxel is considered for floor collisions (with the camera feet).
-    pub is_floor: bool,
-    /// Whether a bounding box (AABB) should be created for this voxel.
-    pub is_empty: bool,
+pub struct Voxel {
+    pub voxel_type: VoxelType,
+    pub distance: VoxelDistance,
+}
+
+/// Points to some palette element.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct VoxelType(pub u8);
+
+/// Quantized distance from an isosurface.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct VoxelDistance(pub i8);
+
+impl VoxelDistance {
+    // This is mostly just experimental. I don't have a good rationale for this value.
+    const SDF_QUANTIZE_FACTOR: f32 = 50.0;
+
+    pub fn encode(distance: f32) -> Self {
+        Self(
+            (distance * Self::SDF_QUANTIZE_FACTOR)
+                .min(std::i8::MAX as f32)
+                .max(std::i8::MIN as f32) as i8,
+        )
+    }
+
+    /// The inverse of `encode`.
+    pub fn decode(self: Self) -> f32 {
+        self.0 as f32 / Self::SDF_QUANTIZE_FACTOR
+    }
+}
+
+impl SignedDistance for Voxel {
+    fn distance(&self) -> f32 {
+        self.distance.decode()
+    }
+}
+
+pub const EMPTY_VOXEL: Voxel = Voxel {
+    voxel_type: VoxelType(0),
+    distance: VoxelDistance(std::i8::MAX),
+};
+
+/// A full static description of the `VoxelInfo`s to be loaded for one map.
+#[derive(Clone, Default, Deserialize, Serialize)]
+pub struct VoxelPalette {
+    /// File locations of any voxel assets (e.g. materials).
+    pub assets: VoxelPaletteAssets,
+    /// The palette of voxels that can be used in the lattice. Indexed by integer that is used as
+    /// the address part of the `VoxelInfoPtr`.
+    pub infos: Vec<VoxelInfo>,
+}
+
+impl VoxelPalette {
+    pub fn get_voxel_type_info(&self, voxel_type: VoxelType) -> &VoxelInfo {
+        &self.infos[voxel_type.0 as usize]
+    }
 }
 
 /// Fully describes a voxel model in a serializable format. Can be aliased by a `Voxel` for
@@ -50,13 +109,19 @@ pub struct VoxelInfo {
     pub material_index: ArrayMaterialIndex,
 }
 
-impl IsEmpty for VoxelInfo {
+impl IsEmpty for &VoxelInfo {
     fn is_empty(&self) -> bool {
         self.flags.is_empty
     }
 }
 
-impl GreedyQuadsVoxel for VoxelInfo {
+impl IsFloor for &VoxelInfo {
+    fn is_floor(&self) -> bool {
+        self.flags.is_floor
+    }
+}
+
+impl MaterialVoxel for &VoxelInfo {
     type Material = ArrayMaterialIndex;
 
     fn material(&self) -> Self::Material {
@@ -64,65 +129,16 @@ impl GreedyQuadsVoxel for VoxelInfo {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct VoxelFlags {
+    /// Whether the voxel is considered for floor collisions (with the camera feet).
+    pub is_floor: bool,
+    /// Whether a bounding box (AABB) should be created for this voxel.
+    pub is_empty: bool,
+}
+
 pub trait IsFloor {
     fn is_floor(&self) -> bool;
-}
-
-impl IsFloor for VoxelInfo {
-    fn is_floor(&self) -> bool {
-        self.flags.is_floor
-    }
-}
-
-/// The data actually stored in each point of the voxel map.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
-pub struct Voxel {
-    /// Points to some palette element.
-    pub palette_address: u8,
-    /// Quantized distance from the isosurface.
-    pub distance: i8,
-}
-
-pub const EMPTY_VOXEL: Voxel = Voxel {
-    palette_address: 0,
-    distance: std::i8::MAX,
-};
-
-impl GetPaletteAddress for Voxel {
-    fn get_palette_address(&self) -> usize {
-        self.palette_address as usize
-    }
-}
-
-// This is mostly just experimental. I don't have a good rationale for this value.
-const SDF_QUANTIZE_FACTOR: f32 = 50.0;
-
-pub fn encode_distance(distance: f32) -> i8 {
-    (distance * SDF_QUANTIZE_FACTOR)
-        .min(std::i8::MAX as f32)
-        .max(std::i8::MIN as f32) as i8
-}
-
-/// The inverse of `encode_distance`.
-pub fn decode_distance(encoded: i8) -> f32 {
-    encoded as f32 / SDF_QUANTIZE_FACTOR
-}
-
-pub struct VoxelMap {
-    pub palette_assets: VoxelPaletteAssets,
-    pub voxels: PaletteLatticeMap<VoxelInfo, Voxel>,
-}
-
-pub fn voxel_is_empty<V, T>(voxels: &V, p: &lat::Point) -> bool
-where
-    V: MaybeGetWorldRef<Data = T>,
-    T: IsEmpty,
-{
-    if let Some(v) = voxels.maybe_get_world_ref(p) {
-        v.is_empty()
-    } else {
-        true
-    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -131,11 +147,7 @@ pub struct VoxelPaletteAssets {
     pub array_materials: HashMap<usize, String>,
 }
 
-pub const VOXEL_CHUNK_SIZE: lat::Point = lat::Point {
-    x: 16,
-    y: 16,
-    z: 16,
-};
+pub const VOXEL_CHUNK_SHAPE: Point3i = PointN([16; 3]);
 
 #[derive(Default)]
 pub struct VoxelAssets {
@@ -146,79 +158,41 @@ pub struct VoxelAssets {
     pub meshes: VoxelMeshes,
 }
 
-fn floor_float_vector_to_lattice_point(v: &Vector3<f32>) -> lat::Point {
-    lat::Point::new(v.x.floor() as i32, v.y.floor() as i32, v.z.floor() as i32)
+pub fn voxel_center_offset() -> na::Vector3<f32> {
+    na::Vector3::new(0.5, 0.5, 0.5)
 }
 
-pub fn voxel_containing_point(p: &Point3<f32>) -> lat::Point {
-    floor_float_vector_to_lattice_point(&p.coords)
+pub fn voxel_center(p: Point3i) -> na::Point3<f32> {
+    // TODO: amethyst is using an older version of nalgebra than building-blocks, so we can't do the
+    // simplest conversion
+    na::Point3::<f32>::from(Point3f::from(p).0) + voxel_center_offset()
 }
 
-pub struct LatPoint3(pub Point3<f32>);
-
-impl From<lat::Point> for LatPoint3 {
-    fn from(other: lat::Point) -> LatPoint3 {
-        LatPoint3(<[f32; 3]>::from(other).into())
-    }
+pub fn voxel_containing_point(p: &na::Point3<f32>) -> Point3i {
+    // TODO: amethyst is using an older version of nalgebra than building-blocks, so we can't do the
+    // simplest conversion
+    voxel_containing_point3f(&PointN([p.x, p.y, p.z]))
 }
 
-/// Returns the AABB with corners (min, max + [1, 1, 1]).
-pub fn extent_aabb(e: &lat::Extent) -> AABB<f32> {
-    let LatPoint3(mins) = e.get_minimum().into();
-    let LatPoint3(maxs) = (*e.get_world_supremum()).into();
+pub fn centered_extent(center: Point3i, radius: u32) -> Extent3i {
+    let r = radius as i32;
+    let min = center - PointN([r; 3]);
+    let shape = PointN([2 * r + 1; 3]);
 
-    AABB::new(mins, maxs)
+    Extent3i::from_min_and_shape(min, shape)
 }
 
-pub fn single_voxel_extent(point: lat::Point) -> lat::Extent {
-    lat::Extent::from_min_and_local_supremum(point, [1, 1, 1].into())
+// TODO: amethyst is using an older version of nalgebra than building-blocks, so we need to upgrade
+// the old ncollide types to new ones when using them with building-blocks
+
+pub fn upgrade_ray(old_ray: nc_old::query::Ray<f32>) -> nc_new::query::Ray<f32> {
+    nc_new::query::Ray::new(upgrade_point(old_ray.origin), upgrade_vector(old_ray.dir))
 }
 
-pub fn voxel_aabb(p: &lat::Point) -> AABB<f32> {
-    extent_aabb(&single_voxel_extent(*p))
+pub fn upgrade_point(old_p: na::Point3<f32>) -> nc_new::na::Point3<f32> {
+    nc_new::na::Point3::<f32>::new(old_p.x, old_p.y, old_p.z)
 }
 
-pub fn voxel_center_offset() -> Vector3<f32> {
-    Vector3::new(0.5, 0.5, 0.5)
-}
-
-pub fn voxel_center(p: &lat::Point) -> Point3<f32> {
-    let LatPoint3(fpoint) = (*p).into();
-
-    fpoint + voxel_center_offset()
-}
-
-fn half_extent(e: &lat::Extent) -> Vector3<f32> {
-    let LatPoint3(sup) = (*e.get_local_supremum()).into();
-
-    sup.coords / 2.0
-}
-
-pub fn extent_cuboid(e: &lat::Extent) -> Cuboid<f32> {
-    Cuboid::new(half_extent(e))
-}
-
-pub fn extent_cuboid_transform(e: &lat::Extent) -> Isometry3<f32> {
-    let LatPoint3(min) = e.get_minimum().into();
-    let center = min.coords + half_extent(e);
-
-    Isometry3::new(center, zero())
-}
-
-pub fn voxel_cuboid(p: &lat::Point) -> Cuboid<f32> {
-    extent_cuboid(&single_voxel_extent(*p))
-}
-
-pub fn voxel_transform(p: &lat::Point) -> Isometry3<f32> {
-    extent_cuboid_transform(&single_voxel_extent(*p))
-}
-
-/// Returns the normal vector of the face which `real_p` is closest to. `voxel_p` is the point of
-/// the voxel.
-pub fn closest_face(voxel_p: &lat::Point, real_p: &Point3<f32>) -> lat::Point {
-    // Get a vector from the center of the voxel.
-    let c = voxel_center(voxel_p);
-    let real_v: [f32; 3] = (*real_p - c).into();
-
-    closest_normal(&real_v)
+pub fn upgrade_vector(old_v: na::Vector3<f32>) -> nc_new::na::Vector3<f32> {
+    nc_new::na::Vector3::<f32>::new(old_v.x, old_v.y, old_v.z)
 }

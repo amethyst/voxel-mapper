@@ -4,12 +4,12 @@ use crate::{
 };
 
 use voxel_mapper::{
-    collision::voxel_bvt::{insert_all_chunk_bvts, VoxelBVT},
+    collision::{insert_all_chunk_bvts, VoxelBVT},
     voxel::{
         asset_loader::VoxelAssetLoader,
         map_file::{load_voxel_map, save_voxel_map},
         meshing::manager::VoxelMeshManager,
-        LocalVoxelChunkCache, VoxelMap,
+        VoxelMap, VoxelType,
     },
 };
 
@@ -28,6 +28,7 @@ use amethyst::{
         palette::{rgb::Rgb, Srgba},
     },
 };
+use building_blocks::prelude::*;
 use std::path::PathBuf;
 
 pub struct OnlyState {
@@ -46,7 +47,7 @@ impl SimpleState for OnlyState {
 
         world.insert(PaintBrush {
             radius: 20,
-            voxel_address: 1,
+            voxel_type: VoxelType(1),
             dist_from_camera: None,
         });
 
@@ -54,7 +55,7 @@ impl SimpleState for OnlyState {
 
         let map = load_voxel_map(&self.map_file).expect("Failed to load voxel map");
 
-        let local_chunk_cache = LocalVoxelChunkCache::new();
+        let local_chunk_cache = LocalChunkCache3::new();
 
         let mut assets = world.exec(|mut loader: VoxelAssetLoader| {
             let mut unused_progress = ProgressCounter::new();
@@ -63,7 +64,7 @@ impl SimpleState for OnlyState {
         });
         world.exec(
             |(mut voxel_bvt, mut manager): (WriteExpect<VoxelBVT>, VoxelMeshManager)| {
-                insert_all_chunk_bvts(&mut voxel_bvt, &map.voxels, &local_chunk_cache);
+                insert_all_chunk_bvts(&mut voxel_bvt, &map, &local_chunk_cache);
                 manager.make_all_chunk_mesh_entities(&mut assets, &map);
             },
         );

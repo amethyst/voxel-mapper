@@ -14,7 +14,7 @@ use self::colliding_controller::CameraCollisionConfig;
 
 use voxel_mapper::{
     collision::VoxelBVT,
-    voxel::{chunk_cache_flusher::ChunkCacheFlusher, VoxelInfoMapReader, VoxelMap},
+    voxel::{chunk_cache_flusher::ChunkCacheFlusher, VoxelMap},
 };
 
 use amethyst::{
@@ -30,6 +30,7 @@ use amethyst::{
     utils::application_dir,
     window::ScreenDimensions,
 };
+use building_blocks::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
@@ -46,7 +47,7 @@ pub fn make_camera(position: Point3<f32>, target: Point3<f32>, world: &mut World
 
     let camera_state = ThirdPersonCameraState::new(position, target);
     let input_processor = InputProcessor::new(config.input);
-    let controller = CameraControllerComponent(Box::new(FinalController::new(config.control)));
+    let controller = CameraControllerComponent(FinalController::new(config.control));
 
     world
         .create_entity()
@@ -82,17 +83,7 @@ pub struct ThirdPersonControlConfig {
     pub collision: CameraCollisionConfig,
 }
 
-pub trait CameraController {
-    fn update(
-        &mut self,
-        camera_state: &ThirdPersonCameraState,
-        input: &ProcessedInput,
-        map_reader: &VoxelInfoMapReader,
-        voxel_bvt: &VoxelBVT,
-    ) -> (Transform, ThirdPersonCameraState);
-}
-
-pub struct CameraControllerComponent(pub Box<dyn CameraController + Send + Sync>);
+pub struct CameraControllerComponent(pub FinalController);
 
 impl Component for CameraControllerComponent {
     type Storage = HashMapStorage<Self>;
@@ -139,17 +130,19 @@ where
                 cam_tfm,
                 &self.screen_dims,
             );
-            let map_reader = VoxelInfoMapReader::new(&self.voxel_map.voxels);
+            let local_cache = LocalChunkCache3::new();
+            let map_reader = ChunkMapReader3::new(&self.voxel_map.voxels, &local_cache);
+            let voxel_infos = TransformMap::new(&map_reader, self.voxel_map.voxel_info_transform());
             let CameraControllerComponent(ctrlr) = ctrlr;
             let (new_cam_tfm, new_camera_state) =
-                ctrlr.update(&tpc_state, &proc_input, &map_reader, &self.voxel_bvt);
+                ctrlr.update(&tpc_state, &proc_input, &voxel_infos, &self.voxel_bvt);
             *tpc_state = new_camera_state;
 
             // Make sure not to overwrite the global matrix.
             *cam_tfm.translation_mut() = *new_cam_tfm.translation();
             *cam_tfm.rotation_mut() = *new_cam_tfm.rotation();
 
-            self.cache_flusher.flush(map_reader.local_cache);
+            self.cache_flusher.flush(local_cache);
         }
     }
 }

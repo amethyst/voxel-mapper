@@ -5,9 +5,9 @@ use super::{
     double_buffer::VoxelDoubleBufferingSystem,
     editor::VoxelEditorSystemDesc,
 };
-use crate::collision::VoxelBVT;
 
 use amethyst::core::{ecs::prelude::*, SystemBundle, SystemDesc};
+use building_blocks::{core::Point3i, partition::OctreeDBVT};
 
 /// Includes the voxel systems necessary for making edits to the `VoxelMap` and generating the
 /// corresponding entities in real time. Before dispatching, the `World` must contain a `VoxelMap`
@@ -25,7 +25,7 @@ impl<'a, 'b> SystemBundle<'a, 'b> for VoxelSystemBundle {
         world: &mut World,
         dispatcher: &mut DispatcherBuilder<'a, 'b>,
     ) -> Result<(), amethyst::Error> {
-        world.insert(VoxelBVT::new());
+        world.insert(OctreeDBVT::<Point3i>::default());
         world.insert(MeshMode::SurfaceNets);
 
         // Chunk cache maintenance.

@@ -4,11 +4,11 @@ use crate::{
 };
 
 use voxel_mapper::voxel::{
+    centered_extent,
     chunk_cache_flusher::ChunkCacheFlusher,
     chunk_processor::MeshMode,
-    decode_distance,
     editor::{EditVoxelsRequest, SetVoxel},
-    voxel_containing_point, Voxel, VoxelAddressMapReader, VoxelMap, EMPTY_VOXEL,
+    voxel_containing_point, Voxel, VoxelDistance, VoxelMap, VoxelType, EMPTY_VOXEL,
 };
 
 use amethyst::{
@@ -17,8 +17,7 @@ use amethyst::{
     input::{Button, InputEvent, InputHandler, VirtualKeyCode},
     shrev::EventChannel,
 };
-use ilattice3 as lat;
-use ilattice3::prelude::*;
+use building_blocks::prelude::*;
 
 #[cfg(feature = "profiler")]
 use thread_profiler::profile_scope;
@@ -37,7 +36,7 @@ impl VoxelBrushSystem {
 }
 
 pub struct PaintBrush {
-    pub voxel_address: u8,
+    pub voxel_type: VoxelType,
     pub radius: u32,
     pub dist_from_camera: Option<f32>,
 }
@@ -105,8 +104,8 @@ impl<'a> System<'a> for VoxelBrushSystem {
                 }
                 InputEvent::ButtonPressed(Button::Key(key)) => {
                     if key_is_number(*key) {
-                        brush.voxel_address = key_number(*key) as u8;
-                        log::info!("Set voxel paintbrush to address {}", brush.voxel_address);
+                        brush.voxel_type = VoxelType(key_number(*key) as u8);
+                        log::info!("Set voxel paintbrush to {:?}", brush.voxel_type);
                     }
                 }
                 _ => (),
@@ -127,7 +126,8 @@ impl<'a> System<'a> for VoxelBrushSystem {
         let center = camera_ray.origin + radius * camera_ray.dir;
         let brush_center = voxel_containing_point(&center);
 
-        let map_reader = VoxelAddressMapReader::new(&voxel_map.voxels.map);
+        let local_cache = LocalChunkCache3::new();
+        let map_reader = ChunkMapReader3::new(&voxel_map.voxels, &local_cache);
 
         let mut lock_brush_dist_from_camera = false;
         if input_handler
@@ -139,7 +139,7 @@ impl<'a> System<'a> for VoxelBrushSystem {
                 SetVoxelOperation::MakeSolid,
                 brush_center,
                 brush.radius,
-                brush.voxel_address,
+                brush.voxel_type,
                 &map_reader,
                 &mut edit_voxel_requests,
             );
@@ -152,7 +152,7 @@ impl<'a> System<'a> for VoxelBrushSystem {
                 SetVoxelOperation::RemoveSolid,
                 brush_center,
                 brush.radius,
-                0,
+                VoxelType(0),
                 &map_reader,
                 &mut edit_voxel_requests,
             );
@@ -166,33 +166,33 @@ impl<'a> System<'a> for VoxelBrushSystem {
                 brush.dist_from_camera = objects
                     .voxel
                     .as_ref()
-                    .map(|v| v.raycast_result.toi)
+                    .map(|v| v.impact.impact.toi)
                     .or(dist_from_xz_point);
             }
         }
 
-        cache_flusher.flush(map_reader.local_cache);
+        cache_flusher.flush(local_cache);
     }
 }
 
 fn send_request_for_sphere(
     operation: SetVoxelOperation,
-    center: lat::Point,
+    center: Point3i,
     radius: u32,
-    palette_address: u8,
-    map_reader: &VoxelAddressMapReader,
+    voxel_type: VoxelType,
+    map_reader: &ChunkMapReader3<Voxel>,
     edit_voxel_requests: &mut EventChannel<EditVoxelsRequest>,
 ) {
-    let set_voxels = lat::Extent::from_center_and_radius(center, radius as i32 + 2)
-        .into_iter()
+    let set_voxels = centered_extent(center, radius)
+        .iter_points()
         .filter_map(|p| {
             let diff = p - center;
             let dist = (diff.dot(&diff) as f32).sqrt() - radius as f32;
             if dist <= 1.0 {
-                let old_voxel = map_reader.maybe_get_world_ref(&p).unwrap_or(&EMPTY_VOXEL);
+                let old_voxel = map_reader.get(&p);
                 Some((
                     p,
-                    determine_new_voxel(old_voxel, operation, palette_address, dist),
+                    determine_new_voxel(old_voxel, operation, voxel_type, dist),
                 ))
             } else {
                 // No need to set a voxel this far away from the sphere's surface.
@@ -204,23 +204,23 @@ fn send_request_for_sphere(
 }
 
 fn determine_new_voxel(
-    old_voxel: &Voxel,
+    old_voxel: Voxel,
     operation: SetVoxelOperation,
-    new_addr: u8,
+    new_type: VoxelType,
     new_dist: f32,
 ) -> SetVoxel {
-    let old_addr = old_voxel.palette_address;
-    let old_dist = decode_distance(old_voxel.distance);
+    let old_type = old_voxel.voxel_type;
+    let old_dist = VoxelDistance::decode(old_voxel.distance);
     let old_solid = old_dist < 0.0;
 
-    let (new_dist, mut new_addr) = match operation {
+    let (new_dist, mut new_type) = match operation {
         SetVoxelOperation::MakeSolid => {
             let new_solid = new_dist < 0.0;
             if old_solid && !new_solid {
                 // Voxel was already solid, we can't make it empty with this operation.
-                (old_dist, old_addr)
+                (old_dist, old_type)
             } else {
-                (new_dist, new_addr)
+                (new_dist, new_type)
             }
         }
         SetVoxelOperation::RemoveSolid => {
@@ -229,27 +229,27 @@ fn determine_new_voxel(
             let new_solid = new_dist < 0.0;
             if !old_solid && new_solid {
                 // Preserve old positive voxels adjacent to the sphere surface on removal.
-                (old_dist, old_addr)
+                (old_dist, old_type)
             } else {
-                (new_dist, new_addr)
+                (new_dist, new_type)
             }
         }
     };
 
     // Make sure we don't change the material when we change the distance of solid voxels that are
     // adjacent to removed voxels.
-    if new_dist < 0.0 && new_addr == EMPTY_VOXEL.palette_address {
-        new_addr = old_addr;
+    if new_dist < 0.0 && new_type == EMPTY_VOXEL.voxel_type {
+        new_type = old_type;
     }
 
     let new_solid = new_dist < 0.0;
 
     SetVoxel {
-        palette_address: if new_solid {
-            new_addr
+        voxel_type: if new_solid {
+            new_type
         } else {
             // Non-solid voxels can't have non-empty attributes.
-            EMPTY_VOXEL.palette_address
+            EMPTY_VOXEL.voxel_type
         },
         distance: new_dist,
     }

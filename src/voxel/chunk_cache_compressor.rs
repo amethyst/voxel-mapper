@@ -22,12 +22,12 @@ impl<'a> System<'a> for ChunkCacheCompressorSystem {
         // PERF: compression could happen in parallel, but we'd need to add some CompressibleMap
         // APIs
 
-        let overgrowth = voxel_map.voxels.map.chunks.len_cached() as i64 - MAX_CACHED_CHUNKS as i64;
+        let overgrowth = voxel_map.voxels.chunks.len_cached() as i64 - MAX_CACHED_CHUNKS as i64;
         for _ in 0..overgrowth
             .max(0)
             .min(MAX_COMPRESSED_PER_FRAME_PER_CORE as i64)
         {
-            voxel_map.voxels.map.chunks.compress_lru();
+            voxel_map.voxels.chunks.compress_lru();
         }
     }
 }

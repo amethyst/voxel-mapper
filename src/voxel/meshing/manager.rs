@@ -9,7 +9,7 @@ use amethyst::{
     core::{ecs::prelude::*, Transform},
     renderer::formats::mtl::MaterialPrefab,
 };
-use ilattice3 as lat;
+use building_blocks::prelude::*;
 use std::collections::HashMap;
 
 #[derive(SystemData)]
@@ -22,14 +22,14 @@ pub struct VoxelMeshManager<'a> {
 impl<'a> VoxelMeshManager<'a> {
     /// Similar to VoxelChunkProcessorSystem::run, but it runs on every chunk loaded in the map, and
     /// expects that mesh assets are finished loading.
-    pub fn make_all_chunk_mesh_entities(&mut self, assets: &mut VoxelAssets, map: &VoxelMap) {
+    pub fn make_all_chunk_mesh_entities(&mut self, assets: &mut VoxelAssets, voxel_map: &VoxelMap) {
         let VoxelAssets {
             array_materials,
             meshes,
             ..
         } = assets;
 
-        for chunk_key in map.voxels.map.chunk_keys() {
+        for chunk_key in voxel_map.voxels.chunk_keys() {
             if let Some(chunk_mesh) = meshes.chunk_meshes.get(chunk_key) {
                 self.update_chunk_mesh_entities(
                     chunk_key,
@@ -42,7 +42,7 @@ impl<'a> VoxelMeshManager<'a> {
 
     pub fn update_chunk_mesh_entities(
         &mut self,
-        chunk_key: &lat::Point,
+        chunk_key: &Point3i,
         mesh: Option<ChunkMesh>,
         array_materials: &HashMap<ArrayMaterialId, Handle<Prefab<MaterialPrefab>>>,
     ) {

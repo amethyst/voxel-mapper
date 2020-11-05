@@ -1,20 +1,19 @@
 use super::{input::ProcessedInput, ThirdPersonCameraState, ThirdPersonControlConfig};
 
 use voxel_mapper::{
-    collision::{
-        earliest_toi, extreme_ball_voxel_impact, floor_translation::translate_over_floor, VoxelBVT,
-    },
+    collision::{floor_translation::translate_over_floor, VoxelBVT},
     geometry::{project_point_onto_line, Line, UP},
     voxel::{
-        search::find_path_through_voxels_with_l1_and_linear_heuristic, voxel_center,
-        voxel_containing_point, voxel_is_empty, IsFloor,
+        search::greedy_path_with_l1_and_linear_heuristic, upgrade_ray, voxel_center,
+        voxel_containing_point, IsFloor,
     },
 };
 
 use amethyst::core::math::{Point3, Vector3};
-use ilattice3 as lat;
-use ilattice3::{algos::find_path_through_voxels_with_l1_heuristic, prelude::*};
-use ncollide3d::query::TOI;
+use building_blocks::{
+    partition::collision::voxel_sphere_cast, prelude::*, search::greedy_path_with_l1_heuristic,
+};
+use ncollide3d::query::Ray;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "profiler")]
@@ -54,8 +53,8 @@ pub struct CameraCollisionConfig {
 /// Resolves collisions to prevent occluding the target.
 pub struct CollidingController {
     colliding: bool,
-    last_empty_feet_point: Option<lat::Point>,
-    previous_camera_voxel: Option<lat::Point>,
+    last_empty_feet_point: Option<Point3i>,
+    previous_camera_voxel: Option<Point3i>,
 }
 
 impl CollidingController {
@@ -76,7 +75,7 @@ impl CollidingController {
         voxel_bvt: &VoxelBVT,
     ) -> ThirdPersonCameraState
     where
-        V: MaybeGetWorldRef<Data = T>,
+        V: for<'r> Get<&'r Point3i, Data = T>,
         T: IsEmpty + IsFloor,
     {
         // Figure out the where the camera feet are.
@@ -87,7 +86,7 @@ impl CollidingController {
 
         set_desired_camera_position(input, self.colliding, config, &mut cam_state);
 
-        let voxel_is_empty_fn = |p: &lat::Point| voxel_is_empty(voxels, p);
+        let voxel_is_empty_fn = |p: &Point3i| voxels.get(p).is_empty();
         self.resolve_camera_collisions(
             &config.collision,
             &voxel_is_empty_fn,
@@ -101,7 +100,7 @@ impl CollidingController {
     fn resolve_camera_collisions(
         &mut self,
         config: &CameraCollisionConfig,
-        voxel_is_empty_fn: &impl Fn(&lat::Point) -> bool,
+        voxel_is_empty_fn: &impl Fn(&Point3i) -> bool,
         voxel_bvt: &VoxelBVT,
         cam_state: &mut ThirdPersonCameraState,
     ) {
@@ -122,12 +121,10 @@ impl CollidingController {
             config,
         );
         let (was_collision, camera_after_collisions) = move_ball_until_collision(
-            config.ball_radius,
-            &sphere_cast_start,
-            &desired_position,
             voxel_bvt,
-            earliest_toi,
-            |_| true,
+            config.ball_radius,
+            sphere_cast_start,
+            desired_position,
         );
         self.colliding = was_collision;
 
@@ -147,10 +144,10 @@ impl CollidingController {
     /// Try to find the ideal location to cast a sphere from.
     fn find_start_of_sphere_cast(
         &mut self,
-        path_start: &lat::Point,
+        path_start: &Point3i,
         target: Point3<f32>,
         camera: Point3<f32>,
-        voxel_is_empty_fn: &impl Fn(&lat::Point) -> bool,
+        voxel_is_empty_fn: &impl Fn(&Point3i) -> bool,
         config: &CameraCollisionConfig,
     ) -> Point3<f32> {
         // If we want to be close to the camera, there's not much use in finding a path around
@@ -167,9 +164,9 @@ impl CollidingController {
         // Graph search away from the target to get as close to the camera as possible. It's OK if
         // we don't reach the camera, since we'll still return the path that got closest.
         let path_finish = voxel_containing_point(&camera);
-        let (_reached_finish, path) = find_path_through_voxels_with_l1_and_linear_heuristic(
-            path_start,
-            &path_finish,
+        let (_reached_finish, path) = greedy_path_with_l1_and_linear_heuristic(
+            *path_start,
+            path_finish,
             voxel_is_empty_fn,
             config.max_search_iterations,
         );
@@ -192,17 +189,17 @@ impl CollidingController {
     fn find_start_of_sphere_cast_in_ranges(
         &self,
         unobstructed_ranges: &[([usize; 2], [f32; 2])],
-        path: &[lat::Point],
+        path: &[Point3i],
         eye_line: &Line,
-        voxel_is_empty_fn: &impl Fn(&lat::Point) -> bool,
+        voxel_is_empty_fn: &impl Fn(&Point3i) -> bool,
         config: &CameraCollisionConfig,
     ) -> Option<Point3<f32>> {
         let mut best_point = None;
         let mut best_point_closeness = std::usize::MAX;
 
-        let range_point_closeness = |point_in_range: &lat::Point| {
+        let range_point_closeness = |point_in_range: &Point3i| {
             if let Some(previous_camera) = self.previous_camera_voxel.as_ref() {
-                let (_reached_finish, path) = find_path_through_voxels_with_l1_heuristic(
+                let (_reached_finish, path) = greedy_path_with_l1_heuristic(
                     point_in_range,
                     previous_camera,
                     voxel_is_empty_fn,
@@ -240,7 +237,7 @@ impl CollidingController {
             if closeness < best_point_closeness {
                 best_point_closeness = closeness;
                 best_point = Some(project_point_onto_line(
-                    &voxel_center(&point_in_range),
+                    &voxel_center(point_in_range),
                     eye_line,
                 ));
             }
@@ -251,8 +248,8 @@ impl CollidingController {
 
     fn set_last_empty_feet_voxel(
         &mut self,
-        voxel_is_empty_fn: &impl Fn(&lat::Point) -> bool,
-        new_feet: lat::Point,
+        voxel_is_empty_fn: &impl Fn(&Point3i) -> bool,
+        new_feet: Point3i,
     ) {
         // HACK: really, the feet should never be in a non-empty voxel
         if self.last_empty_feet_point.is_some() {
@@ -293,10 +290,10 @@ fn set_desired_camera_position(
 /// Choose the point in the range that has the best chance of casting the sphere farthest, i.e. a
 /// point that's close to the end of the range, but not too close.
 fn find_start_of_sphere_cast_in_range(
-    path: &[lat::Point],
+    path: &[Point3i],
     path_range: &[usize; 2],
     selection_offset: usize,
-) -> lat::Point {
+) -> Point3i {
     let chosen_index = if path_range[1] - path_range[0] > selection_offset {
         path_range[1] - selection_offset
     } else {
@@ -309,9 +306,9 @@ fn find_start_of_sphere_cast_in_range(
 /// Given `path`, find all contiguous ranges of points that are not obstructed by non-empty voxels.
 /// The ranges are open-ended, i.e. not including the end: [start, end).
 fn find_unobstructed_ranges(
-    path: &[lat::Point],
+    path: &[Point3i],
     eye_line: &Line,
-    voxel_is_empty_fn: &impl Fn(&lat::Point) -> bool,
+    voxel_is_empty_fn: &impl Fn(&Point3i) -> bool,
     config: &CameraCollisionConfig,
 ) -> Vec<([usize; 2], [f32; 2])> {
     let mut unobstructed_ranges = Vec::new();
@@ -332,7 +329,7 @@ fn find_unobstructed_ranges(
         };
 
     for (i, p) in path.iter().enumerate() {
-        let p_center = voxel_center(p);
+        let p_center = voxel_center(*p);
         let p_proj = project_point_onto_line(&p_center, &eye_line);
 
         if point_is_obstructed(p, &p_center, &p_proj, voxel_is_empty_fn, config) {
@@ -347,7 +344,7 @@ fn find_unobstructed_ranges(
     if let Some(p) = path.last() {
         try_add_range(
             path.len(),
-            project_point_onto_line(&voxel_center(p), &eye_line),
+            project_point_onto_line(&voxel_center(*p), &eye_line),
             &mut current_range_start,
         );
     }
@@ -359,10 +356,10 @@ fn find_unobstructed_ranges(
 ///   1. The point strays too far from the eye line.
 ///   2. The voxel projection of the point on the eye line is not connected to empty space.
 fn point_is_obstructed(
-    p: &lat::Point,
+    p: &Point3i,
     p_float: &Point3<f32>,
     p_proj: &Point3<f32>,
-    voxel_is_empty_fn: &impl Fn(&lat::Point) -> bool,
+    voxel_is_empty_fn: &impl Fn(&Point3i) -> bool,
     config: &CameraCollisionConfig,
 ) -> bool {
     let p_rej = p_float - p_proj;
@@ -372,7 +369,7 @@ fn point_is_obstructed(
         let voxel_p_proj = voxel_containing_point(&p_proj);
         if voxel_is_empty_fn(&voxel_p_proj) {
             // Projection must still be path-connected to empty space.
-            let (connected, _) = find_path_through_voxels_with_l1_heuristic(
+            let (connected, _) = greedy_path_with_l1_heuristic(
                 &voxel_p_proj,
                 p,
                 voxel_is_empty_fn,
@@ -386,32 +383,27 @@ fn point_is_obstructed(
 }
 
 fn move_ball_until_collision(
-    ball_radius: f32,
-    start: &Point3<f32>,
-    end: &Point3<f32>,
     voxel_bvt: &VoxelBVT,
-    cmp_fn: impl Fn(TOI<f32>, TOI<f32>) -> TOI<f32>,
-    predicate_fn: impl Fn(&TOI<f32>) -> bool,
+    ball_radius: f32,
+    start: Point3<f32>,
+    end: Point3<f32>,
 ) -> (bool, Point3<f32>) {
-    if let Some(impact) = extreme_ball_voxel_impact(
-        ball_radius,
-        *start,
-        *end,
-        &voxel_bvt,
-        0.0,
-        cmp_fn,
-        predicate_fn,
-    ) {
+    let ray = Ray::new(start, end - start);
+    let max_toi = 1.0;
+
+    if let Some(impact) =
+        voxel_sphere_cast(&voxel_bvt, ball_radius, upgrade_ray(ray), max_toi, |_| true)
+    {
         // Move ball up until an impact occurs. Make sure not to go in reverse (negative stop_time).
         // Note: this calculation works because `extreme_ball_voxel_impact` ensures the max TOI is
         // 1.0.
-        let stop_time = impact.toi;
+        let stop_time = impact.impact.toi;
         debug_assert!(0.0 <= stop_time);
-        debug_assert!(stop_time <= 1.0);
+        debug_assert!(stop_time <= max_toi);
 
         (true, start + stop_time * (end - start))
     } else {
-        (false, *end)
+        (false, end)
     }
 }
 
@@ -440,7 +432,7 @@ mod tests {
 
     #[test]
     fn test_best_unobstructed_range_without_obstructions() {
-        let voxel_is_empty_fn = |_p: &lat::Point| true;
+        let voxel_is_empty_fn = |_p: &Point3i| true;
 
         let eye_line =
             Line::from_endpoints(Point3::new(0.0, 0.0, 0.0), Point3::new(10.0, 0.0, 0.0));
@@ -458,7 +450,7 @@ mod tests {
     #[test]
     fn test_best_unobstructed_range_with_one_obstruction() {
         // Put a spherical obstruction centered at (0, 0, 0).
-        let voxel_is_empty_fn = |p: &lat::Point| {
+        let voxel_is_empty_fn = |p: &Point3i| {
             let diff = *p - [0, 0, 0].into();
 
             diff.dot(&diff) > (TEST_CONFIG.min_obstruction_width as i32 + 1).pow(2)
@@ -469,12 +461,8 @@ mod tests {
 
         let start = [-20, 0, 0].into();
         let finish = [100, 0, 0].into();
-        let (reached_finish, path) = find_path_through_voxels_with_l1_and_linear_heuristic(
-            &start,
-            &finish,
-            &voxel_is_empty_fn,
-            300,
-        );
+        let (reached_finish, path) =
+            greedy_path_with_l1_and_linear_heuristic(&start, &finish, &voxel_is_empty_fn, 300);
         assert!(reached_finish);
 
         let ranges = find_unobstructed_ranges(&path, &eye_line, &voxel_is_empty_fn, &TEST_CONFIG);

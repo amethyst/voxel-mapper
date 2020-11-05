@@ -27,13 +27,10 @@ serde = "1.0"
 structopt = "0.3"
 thread_profiler = { version = "0.3", optional = true }
 
-ilattice3 = { git = "https://github.com/bonsairobo/ilattice3", rev = "9586551f" }
-ilattice3-mesh = { git = "https://github.com/bonsairobo/ilattice3-mesh", rev = "15101c65" }
-ilattice3-procgen = { git = "https://github.com/bonsairobo/ilattice3-procgen", rev = "547114fd" }
-
-# ilattice3 = { path = "../ilattice3" }
-# ilattice3-mesh = { path = "../ilattice3-mesh" }
-# ilattice3-procgen = { path = "../ilattice3-procgen" }
+[dependencies.building-blocks]
+git = "https://github.com/bonsairobo/building-blocks"
+branch = "main"
+features = ["mesh", "nalg", "ncollide", "partition", "search"]
 
 [features]
 profiler = ["thread_profiler", "thread_profiler/thread_profiler"]

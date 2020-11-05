@@ -4,8 +4,7 @@ use crate::{
 };
 
 use amethyst::core::math::{Point3, Vector3};
-use ilattice3 as lat;
-use ilattice3::prelude::*;
+use building_blocks::prelude::*;
 use itertools::Itertools;
 
 /// Returns all numbers `t` such that `bias + slope * t` is an integer and `t_0 <= t <= t_f`.
@@ -58,26 +57,15 @@ fn integer_points_on_line_segment_3d(
     solutions
 }
 
-fn voxel_is_floor<V, T>(p: &lat::Point, voxels: &V) -> bool
-where
-    V: MaybeGetWorldRef<Data = T>,
-    T: IsFloor,
-{
-    voxels
-        .maybe_get_world_ref(p)
-        .map(|p_voxel| p_voxel.is_floor())
-        .unwrap_or(false)
-}
-
 /// True if the voxel at `p` is not a floor voxel AND the voxel directly under `p` is a floor voxel.
-fn voxel_is_on_top_of_floor<V, T>(p: &lat::Point, voxels: &V) -> bool
+fn voxel_is_on_top_of_floor<V, T>(p: &Point3i, voxels: &V) -> bool
 where
-    V: MaybeGetWorldRef<Data = T>,
+    V: for<'r> Get<&'r Point3i, Data = T>,
     T: IsFloor,
 {
-    if !voxel_is_floor(p, voxels) {
-        let under_p = *p - [0, 1, 0].into();
-        return voxel_is_floor(&under_p, voxels);
+    if !voxels.get(p).is_floor() {
+        let under_p = *p - PointN([0, 1, 0]);
+        return voxels.get(&under_p).is_floor();
     }
 
     false
@@ -86,9 +74,9 @@ where
 const MAX_PROBE_ITERS: i32 = 10;
 
 // POTENTIAL BUG: can skip over non-floor voxels in a column
-fn vertical_probe<V, T>(vertical_iters: i32, start: &lat::Point, voxels: &V) -> Option<i32>
+fn vertical_probe<V, T>(vertical_iters: i32, start: &Point3i, voxels: &V) -> Option<i32>
 where
-    V: MaybeGetWorldRef<Data = T>,
+    V: for<'r> Get<&'r Point3i, Data = T>,
     T: IsFloor,
 {
     let dir = vertical_iters.signum();
@@ -99,7 +87,7 @@ where
         if voxel_is_on_top_of_floor(&p, voxels) {
             return Some(dh);
         }
-        p = p + [0, dir, 0].into();
+        p = p + PointN([0, dir, 0]);
         dh += dir;
     }
 
@@ -121,7 +109,7 @@ pub fn translate_over_floor<V, T>(
     blocking_collisions: bool,
 ) -> Point3<f32>
 where
-    V: MaybeGetWorldRef<Data = T>,
+    V: for<'r> Get<&'r Point3i, Data = T>,
     T: IsFloor,
 {
     let up = Vector3::from(UP);
@@ -130,7 +118,7 @@ where
     let start_voxel = voxel_containing_point(&start);
 
     // Sometimes geometry gets created on top of the camera feet, so just probe out of it.
-    if voxel_is_floor(&start_voxel, voxels) {
+    if voxels.get(&start_voxel).is_floor() {
         if let Some(dh) = vertical_probe(100, &start_voxel, voxels) {
             start += dh as f32 * up;
         }
@@ -161,22 +149,15 @@ where
         let midpoint = (p1 + p2.coords) / 2.0;
         let midpoint_voxel = voxel_containing_point(&midpoint);
 
-        let voxel_p = midpoint_voxel + [0, height_delta, 0].into();
+        let voxel_p = midpoint_voxel + PointN([0, height_delta, 0]);
 
-        let dh = voxels
-            .maybe_get_world_ref(&voxel_p)
-            .map(|voxel| {
-                let probe_vector = if voxel.is_floor() {
-                    MAX_PROBE_ITERS
-                } else {
-                    -MAX_PROBE_ITERS
-                };
-
-                vertical_probe(probe_vector, &voxel_p, voxels)
-            })
-            .flatten();
-
-        if let Some(dh) = dh {
+        let voxel_is_floor = voxels.get(&voxel_p).is_floor();
+        let probe_vector = if voxel_is_floor {
+            MAX_PROBE_ITERS
+        } else {
+            -MAX_PROBE_ITERS
+        };
+        if let Some(dh) = vertical_probe(probe_vector, &voxel_p, voxels) {
             height_delta += dh;
             last_good_point = midpoint;
         } else {
@@ -203,12 +184,9 @@ where
 mod tests {
     use super::*;
 
-    use ilattice3 as lat;
-    use ilattice3::ChunkedLatticeMap;
-
     use crate::{
         test_util::{assert_relative_eq_point3, assert_relative_eq_vec},
-        voxel::VOXEL_CHUNK_SIZE,
+        voxel::VOXEL_CHUNK_SHAPE,
     };
 
     #[test]
@@ -269,19 +247,19 @@ mod tests {
     }
 
     fn empty_voxels() -> ChunkedLatticeMap<TestVoxel> {
-        ChunkedLatticeMap::new(VOXEL_CHUNK_SIZE)
+        ChunkedLatticeMap::new(VOXEL_CHUNK_SHAPE)
     }
 
     fn make_floor_strip(voxels: &mut ChunkedLatticeMap<TestVoxel>) {
         voxels.fill_extent_or_default(
-            &lat::Extent::from_min_and_local_supremum([0, 0, 0].into(), [3, 1, 1].into()),
+            &Extent3i::from_min_and_shape([0, 0, 0].into(), [3, 1, 1].into()),
             TestVoxel(true),
             (),
             TestVoxel(false),
         );
         // Make some space above the floor to move through.
         voxels.fill_extent_or_default(
-            &lat::Extent::from_min_and_local_supremum([0, 1, 0].into(), [3, 2, 1].into()),
+            &Extent3i::from_min_and_shape([0, 1, 0].into(), [3, 2, 1].into()),
             TestVoxel(false),
             (),
             TestVoxel(false),
@@ -290,7 +268,7 @@ mod tests {
 
     fn make_bump(voxels: &mut ChunkedLatticeMap<TestVoxel>) {
         voxels.fill_extent_or_default(
-            &lat::Extent::from_min_and_local_supremum([1, 1, 0].into(), [1, 1, 1].into()),
+            &Extent3i::from_min_and_shape([1, 1, 0].into(), [1, 1, 1].into()),
             TestVoxel(true),
             (),
             TestVoxel(false),

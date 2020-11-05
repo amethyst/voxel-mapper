@@ -1,6 +1,4 @@
-use super::{
-    meshing::loader::VoxelMeshLoader, ArrayMaterialId, LocalVoxelChunkCache, VoxelAssets, VoxelMap,
-};
+use super::{meshing::loader::VoxelMeshLoader, ArrayMaterialId, Voxel, VoxelAssets, VoxelMap};
 
 use amethyst::{
     assets::{Handle, Prefab, PrefabLoader, ProgressCounter, RonFormat},
@@ -8,6 +6,7 @@ use amethyst::{
     renderer::formats::mtl::MaterialPrefab,
     utils::application_dir,
 };
+use building_blocks::prelude::*;
 use std::collections::HashMap;
 
 #[derive(SystemData)]
@@ -20,14 +19,14 @@ impl<'a> VoxelAssetLoader<'a> {
     pub fn start_loading(
         &mut self,
         map: &VoxelMap,
-        chunk_cache: &LocalVoxelChunkCache,
+        chunk_cache: &LocalChunkCache3<Voxel>,
         progress: &mut ProgressCounter,
     ) -> VoxelAssets {
         let array_materials =
-            self.start_loading_materials(&map.palette_assets.array_materials, &mut *progress);
-        let meshes =
-            self.mesh_loader
-                .start_loading_all_chunks(&map.voxels, chunk_cache, &mut *progress);
+            self.start_loading_materials(&map.palette.assets.array_materials, &mut *progress);
+        let meshes = self
+            .mesh_loader
+            .start_loading_all_chunks(map, chunk_cache, &mut *progress);
 
         VoxelAssets {
             array_materials,
