@@ -150,7 +150,7 @@ impl<'a> System<'a> for VoxelBrushSystem {
                 SetVoxelOperation::RemoveSolid,
                 brush_center,
                 brush.radius,
-                VoxelType(0),
+                EMPTY_VOXEL.voxel_type,
                 &map_reader,
                 &mut *voxel_backbuffer,
             );
@@ -206,8 +206,8 @@ fn edit_sphere(
             if sdf_delta < 0 && v.distance.0 < 0 {
                 // Only set to the brush type if the voxel is solid.
                 v.voxel_type = voxel_type;
-            } else if sdf_delta > 0 && v.distance.0 > 0 {
-                *v = EMPTY_VOXEL;
+            } else if sdf_delta > 0 && v.distance.0 >= 0 {
+                v.voxel_type = EMPTY_VOXEL.voxel_type;
             }
         },
     );

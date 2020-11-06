@@ -19,7 +19,6 @@ use amethyst::{
     renderer::formats::mtl::MaterialPrefab,
 };
 use building_blocks::{
-    core::voxel_containing_point3f,
     mesh::{MaterialVoxel, SignedDistance},
     partition::ncollide3d as nc_new,
     prelude::*,
@@ -81,7 +80,7 @@ impl SignedDistance for Voxel {
 
 pub const EMPTY_VOXEL: Voxel = Voxel {
     voxel_type: VoxelType(0),
-    distance: VoxelDistance(25),
+    distance: VoxelDistance(50),
 };
 
 /// A full static description of the `VoxelInfo`s to be loaded for one map.
@@ -170,7 +169,7 @@ pub fn voxel_center(p: Point3i) -> na::Point3<f32> {
 pub fn voxel_containing_point(p: &na::Point3<f32>) -> Point3i {
     // TODO: amethyst is using an older version of nalgebra than building-blocks, so we can't do the
     // simplest conversion
-    voxel_containing_point3f(&PointN([p.x, p.y, p.z]))
+    PointN([p.x, p.y, p.z]).in_voxel()
 }
 
 pub fn centered_extent(center: Point3i, radius: u32) -> Extent3i {
