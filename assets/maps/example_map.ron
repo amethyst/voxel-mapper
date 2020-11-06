@@ -12,7 +12,7 @@
                     is_floor: false,
                     is_empty: true,
                 ),
-                material_index: (4), // null
+                material_index: (255), // null
             ),
             // Solid 1
             (

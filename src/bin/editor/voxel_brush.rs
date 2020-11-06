@@ -5,8 +5,8 @@ use crate::{
 
 use voxel_mapper::voxel::{
     centered_extent, chunk_cache_flusher::ChunkCacheFlusher, chunk_processor::MeshMode,
-    double_buffer::EditedChunksBackBuffer, voxel_containing_point, Voxel, VoxelDistance, VoxelMap,
-    VoxelType, EMPTY_VOXEL,
+    double_buffer::EditedChunksBackBuffer, voxel_containing_point, Voxel, VoxelMap, VoxelType,
+    EMPTY_VOXEL,
 };
 
 use amethyst::{
@@ -173,6 +173,8 @@ impl<'a> System<'a> for VoxelBrushSystem {
     }
 }
 
+const SDF_GROWTH_FACTOR: f32 = 10.0;
+
 fn edit_sphere(
     operation: SetVoxelOperation,
     center: Point3i,
@@ -181,70 +183,34 @@ fn edit_sphere(
     map_reader: &ChunkMapReader3<Voxel>,
     voxel_backbuffer: &mut EditedChunksBackBuffer,
 ) {
+    let fradius = radius as f32;
+    let sign = match operation {
+        SetVoxelOperation::MakeSolid => -1,
+        SetVoxelOperation::RemoveSolid => 1,
+    };
     voxel_backbuffer.edit_voxels_out_of_place(
         map_reader,
         &centered_extent(center, radius),
         |p: Point3i, v: &mut Voxel| {
-            let diff = p - center;
-            let dist = (diff.dot(&diff) as f32).sqrt() - radius as f32;
-            if dist <= 1.0 {
-                let old_voxel = *v;
-                *v = determine_new_voxel(old_voxel, operation, voxel_type, dist);
+            let dist = (p - center).norm();
+
+            // Change the SDF faster closer to the center.
+            let sdf_delta = sign
+                * (SDF_GROWTH_FACTOR * (1.0 - dist / fradius))
+                    .max(0.0)
+                    .round() as i16;
+            let new_dist = v.distance.0 as i16 + sdf_delta;
+
+            v.distance.0 = new_dist.max(std::i8::MIN as i16).min(std::i8::MAX as i16) as i8;
+
+            if sdf_delta < 0 && v.distance.0 < 0 {
+                // Only set to the brush type if the voxel is solid.
+                v.voxel_type = voxel_type;
+            } else if sdf_delta > 0 && v.distance.0 > 0 {
+                *v = EMPTY_VOXEL;
             }
         },
     );
-}
-
-fn determine_new_voxel(
-    old_voxel: Voxel,
-    operation: SetVoxelOperation,
-    new_type: VoxelType,
-    new_dist: f32,
-) -> Voxel {
-    let old_type = old_voxel.voxel_type;
-    let old_dist = VoxelDistance::decode(old_voxel.distance);
-    let old_solid = old_dist < 0.0;
-
-    let (new_dist, mut new_type) = match operation {
-        SetVoxelOperation::MakeSolid => {
-            let new_solid = new_dist < 0.0;
-            if old_solid && !new_solid {
-                // Voxel was already solid, we can't make it empty with this operation.
-                (old_dist, old_type)
-            } else {
-                (new_dist, new_type)
-            }
-        }
-        SetVoxelOperation::RemoveSolid => {
-            // Negate the distance, since this is a remove operation.
-            let new_dist = -new_dist;
-            let new_solid = new_dist < 0.0;
-            if !old_solid && new_solid {
-                // Preserve old positive voxels adjacent to the sphere surface on removal.
-                (old_dist, old_type)
-            } else {
-                (new_dist, new_type)
-            }
-        }
-    };
-
-    // Make sure we don't change the material when we change the distance of solid voxels that are
-    // adjacent to removed voxels.
-    if new_dist < 0.0 && new_type == EMPTY_VOXEL.voxel_type {
-        new_type = old_type;
-    }
-
-    let new_solid = new_dist < 0.0;
-
-    Voxel {
-        voxel_type: if new_solid {
-            new_type
-        } else {
-            // Non-solid voxels can't have non-empty attributes.
-            EMPTY_VOXEL.voxel_type
-        },
-        distance: VoxelDistance::encode(new_dist),
-    }
 }
 
 fn key_number(code: VirtualKeyCode) -> u32 {

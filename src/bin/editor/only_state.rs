@@ -46,7 +46,7 @@ impl SimpleState for OnlyState {
         let StateData { world, .. } = data;
 
         world.insert(PaintBrush {
-            radius: 20,
+            radius: 10,
             voxel_type: VoxelType(1),
             dist_from_camera: None,
         });

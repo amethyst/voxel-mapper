@@ -81,7 +81,7 @@ impl SignedDistance for Voxel {
 
 pub const EMPTY_VOXEL: Voxel = Voxel {
     voxel_type: VoxelType(0),
-    distance: VoxelDistance(std::i8::MAX),
+    distance: VoxelDistance(25),
 };
 
 /// A full static description of the `VoxelInfo`s to be loaded for one map.
