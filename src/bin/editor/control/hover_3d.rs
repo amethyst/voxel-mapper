@@ -39,7 +39,7 @@ impl HoverVoxel {
 
     /// Returns the normal vector of the face that the ray hit first.
     pub fn hover_face(&self) -> Point3i {
-        voxel_containing_point3f(&self.impact.impact.normal.into())
+        voxel_containing_point3f(&self.impact.impact.normal.normalize().into())
     }
 
     /// Returns the point of the adjacent voxel that shares a face with the voxel that was hit by

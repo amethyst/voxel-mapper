@@ -6,7 +6,6 @@ pub mod chunk_cache_compressor;
 pub mod chunk_cache_flusher;
 pub mod chunk_processor;
 pub mod double_buffer;
-pub mod editor;
 pub mod map_file;
 //pub mod map_generators;
 pub mod meshing;
@@ -195,4 +194,14 @@ pub fn upgrade_point(old_p: na::Point3<f32>) -> nc_new::na::Point3<f32> {
 
 pub fn upgrade_vector(old_v: na::Vector3<f32>) -> nc_new::na::Vector3<f32> {
     nc_new::na::Vector3::<f32>::new(old_v.x, old_v.y, old_v.z)
+}
+
+pub fn empty_chunk_map() -> ChunkMap3<Voxel> {
+    let ambient_value = EMPTY_VOXEL;
+
+    ChunkMap3::new(VOXEL_CHUNK_SHAPE, ambient_value, (), FastLz4 { level: 10 })
+}
+
+pub fn empty_array(extent: Extent3i) -> Array3<Voxel> {
+    Array3::fill(extent, EMPTY_VOXEL)
 }

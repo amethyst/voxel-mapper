@@ -151,7 +151,7 @@ pub fn generate_mesh_vertices_with_greedy_quads(
 /// surface chunk.
 fn material_weights<V>(voxels: &V, surface_strides: &[Stride]) -> Vec<[f32; 4]>
 where
-    V: HasArrayIndexer<[i32; 3]> + GetUncheckedRelease<Stride, MaterialWeightsVoxel>,
+    V: Array<[i32; 3]> + GetUncheckedRelease<Stride, MaterialWeightsVoxel>,
 {
     // Precompute the offsets for cube corners.
     let mut corner_offset_strides = [Stride(0); 8];

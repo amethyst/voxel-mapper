@@ -4,11 +4,9 @@ use crate::{
 };
 
 use voxel_mapper::voxel::{
-    centered_extent,
-    chunk_cache_flusher::ChunkCacheFlusher,
-    chunk_processor::MeshMode,
-    editor::{EditVoxelsRequest, SetVoxel},
-    voxel_containing_point, Voxel, VoxelDistance, VoxelMap, VoxelType, EMPTY_VOXEL,
+    centered_extent, chunk_cache_flusher::ChunkCacheFlusher, chunk_processor::MeshMode,
+    double_buffer::EditedChunksBackBuffer, voxel_containing_point, Voxel, VoxelDistance, VoxelMap,
+    VoxelType, EMPTY_VOXEL,
 };
 
 use amethyst::{
@@ -61,7 +59,7 @@ impl<'a> System<'a> for VoxelBrushSystem {
         ReadExpect<'a, ChunkCacheFlusher>,
         WriteExpect<'a, PaintBrush>,
         WriteExpect<'a, MeshMode>,
-        Write<'a, EventChannel<EditVoxelsRequest>>,
+        WriteExpect<'a, EditedChunksBackBuffer>,
         CameraData<'a>,
     );
 
@@ -75,7 +73,7 @@ impl<'a> System<'a> for VoxelBrushSystem {
             cache_flusher,
             mut brush,
             mut mesh_mode,
-            mut edit_voxel_requests,
+            mut voxel_backbuffer,
             ray_data,
         ): Self::SystemData,
     ) {
@@ -135,39 +133,39 @@ impl<'a> System<'a> for VoxelBrushSystem {
             .unwrap()
         {
             lock_brush_dist_from_camera = true;
-            send_request_for_sphere(
+            edit_sphere(
                 SetVoxelOperation::MakeSolid,
                 brush_center,
                 brush.radius,
                 brush.voxel_type,
                 &map_reader,
-                &mut edit_voxel_requests,
+                &mut *voxel_backbuffer,
             );
         } else if input_handler
             .action_is_down(&ActionBinding::RemoveVoxel)
             .unwrap()
         {
             lock_brush_dist_from_camera = true;
-            send_request_for_sphere(
+            edit_sphere(
                 SetVoxelOperation::RemoveSolid,
                 brush_center,
                 brush.radius,
                 VoxelType(0),
                 &map_reader,
-                &mut edit_voxel_requests,
+                &mut *voxel_backbuffer,
             );
         }
 
         if !lock_brush_dist_from_camera {
             if let Some((_cam, cam_tfm)) = ray_data.get_main_camera() {
-                let dist_from_xz_point = objects
-                    .xz_plane
-                    .map(|p| (*cam_tfm.translation() - p.coords).norm());
-                brush.dist_from_camera = objects
-                    .voxel
-                    .as_ref()
-                    .map(|v| v.impact.impact.toi)
-                    .or(dist_from_xz_point);
+                brush.dist_from_camera =
+                    objects
+                        .voxel
+                        .as_ref()
+                        .map(|v| v.impact.impact.toi)
+                        .or(objects
+                            .xz_plane
+                            .map(|p| (*cam_tfm.translation() - p.coords).norm()));
             }
         }
 
@@ -175,32 +173,26 @@ impl<'a> System<'a> for VoxelBrushSystem {
     }
 }
 
-fn send_request_for_sphere(
+fn edit_sphere(
     operation: SetVoxelOperation,
     center: Point3i,
     radius: u32,
     voxel_type: VoxelType,
     map_reader: &ChunkMapReader3<Voxel>,
-    edit_voxel_requests: &mut EventChannel<EditVoxelsRequest>,
+    voxel_backbuffer: &mut EditedChunksBackBuffer,
 ) {
-    let set_voxels = centered_extent(center, radius)
-        .iter_points()
-        .filter_map(|p| {
+    voxel_backbuffer.edit_voxels_out_of_place(
+        map_reader,
+        &centered_extent(center, radius),
+        |p: Point3i, v: &mut Voxel| {
             let diff = p - center;
             let dist = (diff.dot(&diff) as f32).sqrt() - radius as f32;
             if dist <= 1.0 {
-                let old_voxel = map_reader.get(&p);
-                Some((
-                    p,
-                    determine_new_voxel(old_voxel, operation, voxel_type, dist),
-                ))
-            } else {
-                // No need to set a voxel this far away from the sphere's surface.
-                None
+                let old_voxel = *v;
+                *v = determine_new_voxel(old_voxel, operation, voxel_type, dist);
             }
-        })
-        .collect();
-    edit_voxel_requests.single_write(EditVoxelsRequest { voxels: set_voxels });
+        },
+    );
 }
 
 fn determine_new_voxel(
@@ -208,7 +200,7 @@ fn determine_new_voxel(
     operation: SetVoxelOperation,
     new_type: VoxelType,
     new_dist: f32,
-) -> SetVoxel {
+) -> Voxel {
     let old_type = old_voxel.voxel_type;
     let old_dist = VoxelDistance::decode(old_voxel.distance);
     let old_solid = old_dist < 0.0;
@@ -244,14 +236,14 @@ fn determine_new_voxel(
 
     let new_solid = new_dist < 0.0;
 
-    SetVoxel {
+    Voxel {
         voxel_type: if new_solid {
             new_type
         } else {
             // Non-solid voxels can't have non-empty attributes.
             EMPTY_VOXEL.voxel_type
         },
-        distance: new_dist,
+        distance: VoxelDistance::encode(new_dist),
     }
 }
 

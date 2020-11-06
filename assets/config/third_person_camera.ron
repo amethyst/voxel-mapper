@@ -10,7 +10,7 @@
         smoothing_weight: 0.9,
         target_height_above_feet: 3.0,
         collision: (
-            ball_radius: 2.0,
+            ball_radius: 4.0,
             min_obstruction_width: 1.0,
             min_range_length: 4.0,
             not_worth_searching_dist: 4.0,
