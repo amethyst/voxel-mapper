@@ -34,7 +34,10 @@ pub fn load_voxel_map(path: impl AsRef<Path>) -> Result<VoxelMap, BincodeFileErr
         Some((VoxelsFileType::Bincode, path)) => {
             let serializable_map: SerializableChunkMap3<_> = read_bincode_file(path)?;
 
-            let map = ChunkMap3::from_serializable(&serializable_map, FastLz4 { level: 10 });
+            let map = futures::executor::block_on(ChunkMap3::from_serializable(
+                &serializable_map,
+                FastLz4 { level: 10 },
+            ));
 
             let mut sum_bytes = 0;
             for (_, chunk) in map.chunks.iter_maybe_compressed() {
