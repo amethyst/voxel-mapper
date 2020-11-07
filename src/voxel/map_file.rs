@@ -77,7 +77,8 @@ pub fn load_voxel_map(path: impl AsRef<Path>) -> Result<VoxelMap, BincodeFileErr
 }
 
 pub fn save_voxel_map(path: impl AsRef<Path>, map: &VoxelMap) -> Result<(), BincodeFileError> {
-    let serializable_map = map.voxels.to_serializable(BincodeLz4 { level: 16 });
+    let serializable_map =
+        futures::executor::block_on(map.voxels.to_serializable(BincodeLz4 { level: 16 }));
 
     let mut sum_bytes = 0;
     for chunk in serializable_map.compressed_chunks.values() {

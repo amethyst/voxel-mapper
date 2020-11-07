@@ -37,7 +37,7 @@ impl EditedChunksBackBuffer {
         for chunk_key in reader.chunk_keys_for_extent(extent) {
             self.edited_voxels.chunks.get_or_insert_with(chunk_key, || {
                 reader
-                    .get_chunk(chunk_key, reader.local_cache)
+                    .get_chunk(chunk_key)
                     .cloned()
                     .unwrap_or(Chunk3::with_array(empty_array(
                         reader.extent_for_chunk_at_key(&chunk_key),

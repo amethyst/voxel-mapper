@@ -3,7 +3,7 @@ use crate::control::camera::data::CameraData;
 use voxel_mapper::{
     collision::VoxelBVT,
     geometry::{line_plane_intersection, Line, LinePlaneIntersection, Plane},
-    voxel::{upgrade_ray, VoxelMap, EMPTY_VOXEL},
+    voxel::upgrade_ray,
 };
 
 use amethyst::{
@@ -67,14 +67,10 @@ where
         Write<'a, ObjectsUnderCursor>,
         ReadExpect<'a, VoxelBVT>,
         Read<'a, InputHandler<B>>,
-        ReadExpect<'a, VoxelMap>,
         CameraData<'a>,
     );
 
-    fn run(
-        &mut self,
-        (mut objects, voxel_bvt, input_handler, voxel_map, raycast_data): Self::SystemData,
-    ) {
+    fn run(&mut self, (mut objects, voxel_bvt, input_handler, raycast_data): Self::SystemData) {
         #[cfg(feature = "profiler")]
         profile_scope!("hover_object");
 
@@ -91,17 +87,6 @@ where
         let max_toi = std::f32::MAX;
         let voxel_impact = voxel_ray_cast(&*voxel_bvt, upgrade_ray(ray), max_toi, |_| true);
         objects.voxel = voxel_impact.map(|impact| HoverVoxel { impact, ray });
-
-        objects.voxel.as_ref().map(|v| {
-            let cache = LocalChunkCache3::new();
-            let reader = ChunkMapReader3::new(&voxel_map.voxels, &cache);
-            let v_type = reader.get(v.point()).voxel_type;
-            if v_type == EMPTY_VOXEL.voxel_type {
-                println!("HOHOHO");
-            } else {
-                println!("");
-            }
-        });
 
         // Check for intersection with the XZ plane.
         let xz_plane = Plane {
