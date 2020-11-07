@@ -5,7 +5,7 @@
 The Voxel Mapper is a set of Amethyst-compatible systems for creating beautiful
 voxel worlds.
 
-![Demo](/screenshots/demo.gif)
+![Demo](/screenshots/smooth_editing_small.gif)
 
 Supports both smooth voxels and cube voxels. Just edit the `MeshMode` resource.
 
