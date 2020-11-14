@@ -48,6 +48,7 @@
             ),
         ],
     ),
+    // TODO: procgen maps are currently broken, awaiting a port from ilattice3
     // voxels_file_path: Some((ProcGenDungeon, "assets/maps/procgen_dungeon.ron")),
     // voxels_file_path: Some((Bincode, "saved_voxels.bin")),
     voxels_file_path: None,

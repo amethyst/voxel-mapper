@@ -15,15 +15,13 @@ use meshing::loader::VoxelMeshes;
 
 use amethyst::{
     assets::{Handle, Prefab},
-    core::math as na,
     renderer::formats::mtl::MaterialPrefab,
 };
 use building_blocks::{
     mesh::{MaterialVoxel, SignedDistance},
-    partition::ncollide3d as nc_new,
     prelude::*,
 };
-use ncollide3d as nc_old;
+use nalgebra as na;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -161,15 +159,13 @@ pub fn voxel_center_offset() -> na::Vector3<f32> {
 }
 
 pub fn voxel_center(p: Point3i) -> na::Point3<f32> {
-    // TODO: amethyst is using an older version of nalgebra than building-blocks, so we can't do the
-    // simplest conversion
-    na::Point3::<f32>::from(Point3f::from(p).0) + voxel_center_offset()
+    na::Point3::<f32>::from(mint::Point3::<f32>::from(Point3f::from(p))) + voxel_center_offset()
 }
 
-pub fn voxel_containing_point(p: &na::Point3<f32>) -> Point3i {
-    // TODO: amethyst is using an older version of nalgebra than building-blocks, so we can't do the
-    // simplest conversion
-    PointN([p.x, p.y, p.z]).in_voxel()
+pub fn voxel_containing_point(p: na::Point3<f32>) -> Point3i {
+    let p: mint::Point3<f32> = p.into();
+
+    Point3f::from(p).in_voxel()
 }
 
 pub fn centered_extent(center: Point3i, radius: u32) -> Extent3i {
@@ -178,21 +174,6 @@ pub fn centered_extent(center: Point3i, radius: u32) -> Extent3i {
     let shape = PointN([2 * r + 1; 3]);
 
     Extent3i::from_min_and_shape(min, shape)
-}
-
-// TODO: amethyst is using an older version of nalgebra than building-blocks, so we need to upgrade
-// the old ncollide types to new ones when using them with building-blocks
-
-pub fn upgrade_ray(old_ray: nc_old::query::Ray<f32>) -> nc_new::query::Ray<f32> {
-    nc_new::query::Ray::new(upgrade_point(old_ray.origin), upgrade_vector(old_ray.dir))
-}
-
-pub fn upgrade_point(old_p: na::Point3<f32>) -> nc_new::na::Point3<f32> {
-    nc_new::na::Point3::<f32>::new(old_p.x, old_p.y, old_p.z)
-}
-
-pub fn upgrade_vector(old_v: na::Vector3<f32>) -> nc_new::na::Vector3<f32> {
-    nc_new::na::Vector3::<f32>::new(old_v.x, old_v.y, old_v.z)
 }
 
 pub fn empty_chunk_map() -> ChunkMap3<Voxel> {

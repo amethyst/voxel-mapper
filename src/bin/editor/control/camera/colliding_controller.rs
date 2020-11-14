@@ -2,10 +2,10 @@ use super::{input::ProcessedInput, ThirdPersonCameraState, ThirdPersonControlCon
 
 use voxel_mapper::{
     collision::{floor_translation::translate_over_floor, VoxelBVT},
-    geometry::{project_point_onto_line, Line, UP},
+    geometry::{project_point_onto_line, upgrade_ray, Line, UP},
     voxel::{
-        search::greedy_path_with_l1_and_linear_heuristic, upgrade_ray, voxel_center,
-        voxel_containing_point, IsFloor,
+        search::greedy_path_with_l1_and_linear_heuristic, voxel_center, voxel_containing_point,
+        IsFloor,
     },
 };
 
@@ -107,7 +107,7 @@ impl CollidingController {
         let desired_position = cam_state.get_desired_position();
 
         // Choose an empty voxel to start our search path.
-        let feet_voxel = voxel_containing_point(&cam_state.feet);
+        let feet_voxel = voxel_containing_point(cam_state.feet);
         self.set_last_empty_feet_voxel(voxel_is_empty_fn, feet_voxel);
         let empty_path_start = self.last_empty_feet_point.clone().unwrap();
 
@@ -138,7 +138,7 @@ impl CollidingController {
             cam_state.actual_position = camera_after_collisions;
         }
 
-        self.previous_camera_voxel = Some(voxel_containing_point(&cam_state.actual_position));
+        self.previous_camera_voxel = Some(voxel_containing_point(cam_state.actual_position));
     }
 
     /// Try to find the ideal location to cast a sphere from.
@@ -163,7 +163,7 @@ impl CollidingController {
 
         // Graph search away from the target to get as close to the camera as possible. It's OK if
         // we don't reach the camera, since we'll still return the path that got closest.
-        let path_finish = voxel_containing_point(&camera);
+        let path_finish = voxel_containing_point(camera);
         let (_reached_finish, path) = greedy_path_with_l1_and_linear_heuristic(
             *path_start,
             path_finish,
@@ -366,7 +366,7 @@ fn point_is_obstructed(
     if p_rej.norm_squared() < config.min_obstruction_width.powi(2) {
         return false;
     } else {
-        let voxel_p_proj = voxel_containing_point(&p_proj);
+        let voxel_p_proj = voxel_containing_point(*p_proj);
         if voxel_is_empty_fn(&voxel_p_proj) {
             // Projection must still be path-connected to empty space.
             let (connected, _) = greedy_path_with_l1_heuristic(

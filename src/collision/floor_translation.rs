@@ -115,7 +115,7 @@ where
     let up = Vector3::from(UP);
 
     let mut start = *start;
-    let start_voxel = voxel_containing_point(&start);
+    let start_voxel = voxel_containing_point(start);
 
     // Sometimes geometry gets created on top of the camera feet, so just probe out of it.
     if voxels.get(&start_voxel).is_floor() {
@@ -147,7 +147,7 @@ where
         // entering, but we know the midpoint between boundaries will fall into the voxel we are
         // entering.
         let midpoint = (p1 + p2.coords) / 2.0;
-        let midpoint_voxel = voxel_containing_point(&midpoint);
+        let midpoint_voxel = voxel_containing_point(midpoint);
 
         let voxel_p = midpoint_voxel + PointN([0, height_delta, 0]);
 

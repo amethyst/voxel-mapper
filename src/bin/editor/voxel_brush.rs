@@ -122,7 +122,7 @@ impl<'a> System<'a> for VoxelBrushSystem {
             None => return,
         };
         let center = camera_ray.origin + radius * camera_ray.dir;
-        let brush_center = voxel_containing_point(&center);
+        let brush_center = voxel_containing_point(center);
 
         let local_cache = LocalChunkCache3::new();
         let map_reader = ChunkMapReader3::new(&voxel_map.voxels, &local_cache);

@@ -38,7 +38,7 @@ impl<'a> System<'a> for HoverHintSystem {
             let box_p = if let Some(v) = &objects.voxel {
                 v.hover_adjacent_point()
             } else if let Some(p) = objects.xz_plane {
-                voxel_containing_point(&p)
+                voxel_containing_point(p)
             } else {
                 continue;
             };

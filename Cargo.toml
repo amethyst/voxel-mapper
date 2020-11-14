@@ -4,12 +4,11 @@ version = "0.1.0"
 authors = ["Duncan <bonsairobo@gmail.com>"]
 edition = "2018"
 
+[profile.release]
+lto = true
+
 [profile.dev]
 opt-level = 2
-
-[lib]
-name = "voxel_mapper"
-path = "src/lib.rs"
 
 [dependencies]
 amethyst = { git = "https://github.com/amethyst/amethyst", tag = "v0.15.3" }
@@ -20,6 +19,8 @@ futures = "0.3"
 itertools = "0.9"
 lazy_static = "1.4"
 log = "0.4"
+mint = "0.5"
+nalgebra = { version = "0.19", features = ["mint"] }
 ncollide3d = "=0.21.0"
 ordered-float = "1.1"
 rayon = "1.3"
@@ -29,9 +30,10 @@ structopt = "0.3"
 thread_profiler = { version = "0.3", optional = true }
 
 [dependencies.building-blocks]
+# version = "0.2"
 git = "https://github.com/bonsairobo/building-blocks"
 branch = "main"
-features = ["mesh", "nalg", "ncollide", "partition", "search"]
+features = ["mesh", "mint", "ncollide", "partition", "search"]
 
 [features]
 profiler = ["thread_profiler", "thread_profiler/thread_profiler"]

@@ -2,8 +2,7 @@ use crate::control::camera::data::CameraData;
 
 use voxel_mapper::{
     collision::VoxelBVT,
-    geometry::{line_plane_intersection, Line, LinePlaneIntersection, Plane},
-    voxel::upgrade_ray,
+    geometry::{line_plane_intersection, upgrade_ray, Line, LinePlaneIntersection, Plane},
 };
 
 use amethyst::{
@@ -38,9 +37,9 @@ impl HoverVoxel {
 
     /// Returns the normal vector of the face that the ray hit first.
     pub fn hover_face(&self) -> Point3i {
-        let normal: Point3f = self.impact.impact.normal.normalize().into();
+        let mint_v: mint::Vector3<f32> = self.impact.impact.normal.normalize().into();
 
-        normal.round().as_3i()
+        Point3f::from(mint_v).round().as_3i()
     }
 
     /// Returns the point of the adjacent voxel that shares a face with the voxel that was hit by
