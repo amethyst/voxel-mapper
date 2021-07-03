@@ -10,8 +10,8 @@ use amethyst::{
     input::{BindingTypes, InputHandler},
 };
 use building_blocks::{
-    partition::collision::{voxel_ray_cast, VoxelRayImpact},
     prelude::*,
+    search::collision::{cast_ray_at_voxels, VoxelRayImpact},
 };
 use ncollide3d::query::Ray;
 use std::marker::PhantomData;
@@ -37,9 +37,9 @@ impl HoverVoxel {
 
     /// Returns the normal vector of the face that the ray hit first.
     pub fn hover_face(&self) -> Point3i {
-        let mint_v: mint::Vector3<f32> = self.impact.impact.normal.normalize().into();
-
-        Point3f::from(mint_v).round().as_3i()
+        Point3f::from(self.impact.impact.normal.normalize())
+            .round()
+            .into_int()
     }
 
     /// Returns the point of the adjacent voxel that shares a face with the voxel that was hit by
@@ -84,7 +84,7 @@ where
 
         // Check for intersection with a voxel.
         let max_toi = std::f32::MAX;
-        let voxel_impact = voxel_ray_cast(&*voxel_bvt, upgrade_ray(ray), max_toi, |_| true);
+        let voxel_impact = cast_ray_at_voxels(&*voxel_bvt, upgrade_ray(ray), max_toi, |_| true);
         objects.voxel = voxel_impact.map(|impact| HoverVoxel { impact, ray });
 
         // Check for intersection with the XZ plane.

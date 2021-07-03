@@ -221,7 +221,7 @@ pub fn screen_ray(
 // TODO: amethyst is using an older version of nalgebra than building-blocks, so we need to upgrade
 // the old ncollide types to new ones when using them with building-blocks
 use amethyst::core::math as na_old;
-use building_blocks::partition::ncollide3d as nc_new;
+use building_blocks::search::ncollide3d as nc_new;
 use ncollide3d as nc_old;
 
 pub fn upgrade_ray(old_ray: nc_old::query::Ray<f32>) -> nc_new::query::Ray<f32> {

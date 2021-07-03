@@ -44,5 +44,5 @@ pub fn greedy_path_with_l1_and_linear_heuristic(
         unsafe { NotNan::unchecked_new(exact + 0.001 * line_dist) }
     };
 
-    greedy_path(&start, &finish, predicate, heuristic, max_iterations)
+    greedy_path(start, finish, predicate, heuristic, max_iterations)
 }

@@ -131,8 +131,10 @@ where
                 &self.screen_dims,
             );
             let local_cache = LocalChunkCache3::new();
-            let map_reader = ChunkMapReader3::new(&self.voxel_map.voxels, &local_cache);
-            let voxel_infos = TransformMap::new(&map_reader, self.voxel_map.voxel_info_transform());
+            let map_reader = self.voxel_map.voxels.reader(&local_cache);
+            let lod0_reader = map_reader.lod_view(0);
+            let voxel_infos =
+                TransformMap::new(&lod0_reader, self.voxel_map.voxel_info_transform());
             let CameraControllerComponent(ctrlr) = ctrlr;
             let (new_cam_tfm, new_camera_state) =
                 ctrlr.update(&tpc_state, &proc_input, &voxel_infos, &self.voxel_bvt);

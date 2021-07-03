@@ -6,10 +6,8 @@ use crate::{
 use voxel_mapper::{
     collision::{insert_all_chunk_bvts, VoxelBVT},
     voxel::{
-        asset_loader::VoxelAssetLoader,
-        map_file::{load_voxel_map, save_voxel_map},
-        meshing::manager::VoxelMeshManager,
-        VoxelMap, VoxelType,
+        asset_loader::VoxelAssetLoader, map_file::load_voxel_map,
+        meshing::manager::VoxelMeshManager, VoxelMap, VoxelType,
     },
 };
 
@@ -106,7 +104,7 @@ impl SimpleState for OnlyState {
             |(mut manager, map): (VoxelMeshManager, ReadExpect<VoxelMap>)| {
                 manager.destroy();
 
-                save_voxel_map("saved_voxels.bin", &map).expect("Failed to save voxels");
+                // save_voxel_map("saved_voxels.bin", &map).expect("Failed to save voxels");
             },
         );
     }

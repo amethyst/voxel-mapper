@@ -6,7 +6,7 @@ use super::{
 };
 
 use amethyst::core::{ecs::prelude::*, SystemBundle};
-use building_blocks::{core::Point3i, partition::OctreeDBVT};
+use building_blocks::{core::Point3i, search::OctreeDbvt};
 
 /// Includes the voxel systems necessary for making edits to the `VoxelMap` and generating the
 /// corresponding entities in real time. Before dispatching, the `World` must contain a `VoxelMap`
@@ -23,7 +23,7 @@ impl<'a, 'b> SystemBundle<'a, 'b> for VoxelSystemBundle {
         world: &mut World,
         dispatcher: &mut DispatcherBuilder<'a, 'b>,
     ) -> Result<(), amethyst::Error> {
-        world.insert(OctreeDBVT::<Point3i>::default());
+        world.insert(OctreeDbvt::<Point3i>::default());
         world.insert(MeshMode::SurfaceNets);
         world.insert(EditedChunksBackBuffer::new());
 

@@ -33,7 +33,7 @@ impl FinalController {
         voxel_bvt: &VoxelBVT,
     ) -> (Transform, ThirdPersonCameraState)
     where
-        V: for<'r> Get<&'r Point3i, Data = T>,
+        V: Get<Point3i, Item = T>,
         T: IsEmpty + IsFloor,
     {
         let new_camera_state = self.colliding_controller.apply_input(

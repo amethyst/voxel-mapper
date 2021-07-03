@@ -12,10 +12,7 @@ use crate::{
 };
 
 use amethyst::{assets::ProgressCounter, core::ecs::prelude::*};
-use building_blocks::{
-    partition::{Octree, OctreeDBVT},
-    prelude::*,
-};
+use building_blocks::{prelude::*, search::OctreeDbvt, storage::OctreeSet};
 use rayon::prelude::*;
 
 #[cfg(feature = "profiler")]
@@ -36,7 +33,7 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
         ReadExpect<'a, ChunkCacheFlusher>,
         Write<'a, Option<DirtyChunks>>,
         WriteExpect<'a, VoxelAssets>,
-        WriteExpect<'a, OctreeDBVT<Point3i>>,
+        WriteExpect<'a, OctreeDbvt<Point3i>>,
         VoxelMeshLoader<'a>,
         VoxelMeshManager<'a>,
     );
@@ -69,13 +66,16 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
         } = &mut *voxel_assets;
 
         // Do parallel processing of dirty chunks.
-        let generated_chunks: Vec<(Point3i, Octree, Option<IndexedPosColorNormVertices>)> =
+        let generated_chunks: Vec<(Point3i, OctreeSet, Option<IndexedPosColorNormVertices>)> =
             chunks_to_generate
                 .into_par_iter()
-                .filter_map(|chunk_key| {
-                    let local_chunk_cache = LocalChunkCache3::new();
+                .filter_map(|chunk_min| {
+                    let chunk_key = ChunkKey::new(0, chunk_min);
 
-                    let chunk_extent = voxel_map.voxels.extent_for_chunk_at_key(&chunk_key);
+                    let local_chunk_cache = LocalChunkCache3::new();
+                    let reader = voxel_map.voxels.reader(&local_chunk_cache);
+
+                    let chunk_extent = reader.indexer.extent_for_chunk_with_min(chunk_min);
 
                     let vertices = match *mesh_mode {
                         MeshMode::SurfaceNets => generate_mesh_vertices_with_surface_nets(
@@ -90,16 +90,13 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
                         ),
                     };
 
-                    let maybe_processed_chunk = voxel_map
-                        .voxels
-                        .get_chunk(chunk_key, &local_chunk_cache)
-                        .map(|chunk| {
-                            let is_empty_map =
-                                TransformMap::new(&chunk.array, voxel_map.voxel_info_transform());
-                            let new_octree = Octree::from_array3(&is_empty_map, chunk_extent);
+                    let maybe_processed_chunk = reader.get_chunk(chunk_key).map(|chunk| {
+                        let is_empty_map =
+                            TransformMap::new(chunk, voxel_map.voxel_info_transform());
+                        let new_octree = OctreeSet::from_array3(&is_empty_map, chunk_extent);
 
-                            (chunk_key, new_octree, vertices)
-                        });
+                        (chunk_min, new_octree, vertices)
+                    });
 
                     cache_flusher.flush(local_chunk_cache);
 
@@ -108,7 +105,7 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
                 .collect();
 
         // Collect the generated results.
-        for (chunk_key, octree, vertices) in generated_chunks.into_iter() {
+        for (chunk_min, octree, vertices) in generated_chunks.into_iter() {
             // Load the mesh.
             let mesh = {
                 #[cfg(feature = "profiler")]
@@ -120,17 +117,17 @@ impl<'a> System<'a> for VoxelChunkProcessorSystem {
 
             // Replace the chunk BVT.
             if octree.is_empty() {
-                voxel_bvt.remove(&chunk_key);
+                voxel_bvt.remove(&chunk_min);
             } else {
-                voxel_bvt.insert(chunk_key, octree);
+                voxel_bvt.insert(chunk_min, octree);
             }
 
             // Update entities and drop old assets.
-            manager.update_chunk_mesh_entities(&chunk_key, mesh.clone(), array_materials);
+            manager.update_chunk_mesh_entities(chunk_min, mesh.clone(), array_materials);
             if let Some(new_mesh) = mesh {
-                let _drop_old_chunk_meshes = meshes.chunk_meshes.insert(chunk_key, new_mesh);
+                let _drop_old_chunk_meshes = meshes.chunk_meshes.insert(chunk_min, new_mesh);
             } else {
-                meshes.chunk_meshes.remove(&chunk_key);
+                meshes.chunk_meshes.remove(&chunk_min);
             }
         }
     }

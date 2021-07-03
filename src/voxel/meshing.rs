@@ -4,12 +4,12 @@ pub mod manager;
 use crate::{
     assets::{IndexedPosColorNormVertices, PosColorNormVertices},
     rendering::splatted_triplanar_pbr_pass::ArrayMaterialIndex,
-    voxel::{Voxel, VoxelMap, EMPTY_VOXEL},
+    voxel::{LocalVoxelCache, Voxel, VoxelMap, EMPTY_VOXEL},
 };
 
 use amethyst::core::ecs::prelude::*;
 use amethyst::renderer::rendy::mesh::{Color, Normal, Position};
-use building_blocks::{mesh::*, prelude::*, storage::access::GetUncheckedRelease};
+use building_blocks::{mesh::*, prelude::*};
 use std::collections::HashMap;
 
 #[cfg(feature = "profiler")]
@@ -28,7 +28,7 @@ pub struct VoxelMeshEntities {
 pub fn generate_mesh_vertices_with_surface_nets(
     voxel_map: &VoxelMap,
     chunk_extent: &Extent3i,
-    local_chunk_cache: &LocalChunkCache3<Voxel>,
+    local_chunk_cache: &LocalVoxelCache,
 ) -> Option<IndexedPosColorNormVertices> {
     #[cfg(feature = "profiler")]
     profile_scope!("generate_mesh_vertices");
@@ -36,15 +36,15 @@ pub fn generate_mesh_vertices_with_surface_nets(
     let mesh_extent = padded_surface_nets_chunk_extent(chunk_extent);
     // PERF: reuse these buffers between frames
     let mut buffer = SurfaceNetsBuffer::default();
-    let mut mesh_voxels = Array3::fill(mesh_extent, EMPTY_VOXEL);
-    let reader = ChunkMapReader3::new(&voxel_map.voxels, local_chunk_cache);
-    copy_extent(&mesh_extent, &reader, &mut mesh_voxels);
+    let mut mesh_voxels = Array3x1::fill(mesh_extent, EMPTY_VOXEL);
+    let reader = voxel_map.voxels.reader(local_chunk_cache);
+    copy_extent(&mesh_extent, &reader.lod_view(0), &mut mesh_voxels);
 
     {
         #[cfg(feature = "profiler")]
         profile_scope!("surface_nets");
 
-        surface_nets(&mesh_voxels, &mesh_extent, &mut buffer);
+        surface_nets(&mesh_voxels, &mesh_extent, 1.0, &mut buffer);
     }
 
     if buffer.mesh.is_empty() {
@@ -97,17 +97,17 @@ pub fn generate_mesh_vertices_with_surface_nets(
 pub fn generate_mesh_vertices_with_greedy_quads(
     voxel_map: &VoxelMap,
     chunk_extent: &Extent3i,
-    local_chunk_cache: &LocalChunkCache3<Voxel>,
+    local_chunk_cache: &LocalVoxelCache,
 ) -> Option<IndexedPosColorNormVertices> {
     #[cfg(feature = "profiler")]
     profile_scope!("generate_mesh_vertices");
 
     let mesh_extent = padded_greedy_quads_chunk_extent(chunk_extent);
     // PERF: reuse these buffers between frames
-    let mut buffer = GreedyQuadsBuffer::new(mesh_extent);
-    let mut mesh_voxels = Array3::fill(mesh_extent, EMPTY_VOXEL);
-    let reader = ChunkMapReader3::new(&voxel_map.voxels, local_chunk_cache);
-    copy_extent(&mesh_extent, &reader, &mut mesh_voxels);
+    let mut buffer = GreedyQuadsBuffer::new(mesh_extent, RIGHT_HANDED_Y_UP_CONFIG.quad_groups());
+    let mut mesh_voxels = Array3x1::fill(mesh_extent, EMPTY_VOXEL);
+    let reader = voxel_map.voxels.reader(local_chunk_cache);
+    copy_extent(&mesh_extent, &reader.lod_view(0), &mut mesh_voxels);
     let voxel_infos = TransformMap::new(&mesh_voxels, voxel_map.voxel_info_transform());
 
     {
@@ -125,9 +125,10 @@ pub fn generate_mesh_vertices_with_greedy_quads(
     let mut mesh = PosNormMesh::default();
     let mut colors = Vec::with_capacity(4 * buffer.num_quads());
     for group in buffer.quad_groups.iter() {
-        for (quad, material) in group.quads.iter() {
+        for quad in group.quads.iter() {
+            let material = voxel_infos.get(quad.minimum).material_index;
             colors.extend(&[Color(MATERIAL_WEIGHT_TABLE[material.0 as usize]); 4]);
-            group.meta.add_quad_to_pos_norm_mesh(quad, &mut mesh);
+            group.face.add_quad_to_pos_norm_mesh(quad, 1.0, &mut mesh);
         }
     }
 
@@ -151,11 +152,11 @@ pub fn generate_mesh_vertices_with_greedy_quads(
 /// surface chunk.
 fn material_weights<V>(voxels: &V, surface_strides: &[Stride]) -> Vec<[f32; 4]>
 where
-    V: Array<[i32; 3]> + GetUncheckedRelease<Stride, MaterialWeightsVoxel>,
+    V: IndexedArray<[i32; 3]> + Get<Stride, Item = MaterialWeightsVoxel>,
 {
     // Precompute the offsets for cube corners.
     let mut corner_offset_strides = [Stride(0); 8];
-    let corner_offsets = Local::localize_points(&Point3i::corner_offsets());
+    let corner_offsets = Local::localize_points_slice(&Point3i::corner_offsets());
     voxels.strides_from_local_points(&corner_offsets, &mut corner_offset_strides);
 
     let mut material_weights = vec![[0.0; 4]; surface_strides.len()];
@@ -164,7 +165,7 @@ where
         let w = &mut material_weights[i];
         for offset_stride in corner_offset_strides.iter() {
             let q_stride = *p_stride + *offset_stride;
-            let voxel = voxels.get_unchecked_release(q_stride);
+            let voxel = voxels.get(q_stride);
             if voxel.distance < 0 {
                 let material_w = MATERIAL_WEIGHT_TABLE[voxel.material_index.0 as usize];
                 w[0] += material_w[0];

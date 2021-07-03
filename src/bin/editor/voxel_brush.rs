@@ -5,8 +5,8 @@ use crate::{
 
 use voxel_mapper::voxel::{
     centered_extent, chunk_cache_flusher::ChunkCacheFlusher, chunk_processor::MeshMode,
-    double_buffer::EditedChunksBackBuffer, voxel_containing_point, Voxel, VoxelMap, VoxelType,
-    EMPTY_VOXEL,
+    double_buffer::EditedChunksBackBuffer, voxel_containing_point, Voxel, VoxelChunkReader,
+    VoxelMap, VoxelType, EMPTY_VOXEL,
 };
 
 use amethyst::{
@@ -125,7 +125,7 @@ impl<'a> System<'a> for VoxelBrushSystem {
         let brush_center = voxel_containing_point(center);
 
         let local_cache = LocalChunkCache3::new();
-        let map_reader = ChunkMapReader3::new(&voxel_map.voxels, &local_cache);
+        let map_reader = voxel_map.voxels.reader(&local_cache);
 
         let mut lock_brush_dist_from_camera = false;
         if input_handler
@@ -180,7 +180,7 @@ fn edit_sphere(
     center: Point3i,
     radius: u32,
     voxel_type: VoxelType,
-    map_reader: &ChunkMapReader3<Voxel>,
+    map_reader: &VoxelChunkReader,
     voxel_backbuffer: &mut EditedChunksBackBuffer,
 ) {
     let fradius = radius as f32;

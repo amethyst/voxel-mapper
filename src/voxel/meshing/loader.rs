@@ -2,7 +2,7 @@ use super::generate_mesh_vertices_with_surface_nets;
 
 use crate::{
     assets::{BoundedMesh, IndexedPosColorNormVertices, MeshLoader},
-    voxel::{ArrayMaterialId, Voxel, VoxelMap},
+    voxel::{ArrayMaterialId, LocalVoxelCache, VoxelMap},
 };
 
 use amethyst::{assets::ProgressCounter, core::ecs::prelude::*};
@@ -30,18 +30,22 @@ impl<'a> VoxelMeshLoader<'a> {
     pub fn start_loading_all_chunks(
         &mut self,
         voxel_map: &VoxelMap,
-        chunk_cache: &LocalChunkCache3<Voxel>,
+        chunk_cache: &LocalVoxelCache,
         progress: &mut ProgressCounter,
     ) -> VoxelMeshes {
         let chunk_meshes = voxel_map
             .voxels
+            .storage()
             .chunk_keys()
             .filter_map(|chunk_key| {
-                let chunk_extent = voxel_map.voxels.extent_for_chunk_at_key(chunk_key);
+                let chunk_extent = voxel_map
+                    .voxels
+                    .indexer
+                    .extent_for_chunk_with_min(chunk_key.minimum);
                 let vertices =
                     generate_mesh_vertices_with_surface_nets(voxel_map, &chunk_extent, chunk_cache);
 
-                vertices.map(|v| (*chunk_key, self.start_loading_chunk(v, progress)))
+                vertices.map(|v| (chunk_key.minimum, self.start_loading_chunk(v, progress)))
             })
             .collect();
 

@@ -5,7 +5,7 @@ authors = ["Duncan <bonsairobo@gmail.com>"]
 edition = "2018"
 
 [profile.release]
-lto = true
+lto = "thin"
 
 [profile.dev]
 opt-level = 2
@@ -32,8 +32,9 @@ thread_profiler = { version = "0.3", optional = true }
 [dependencies.building-blocks]
 # version = "0.2"
 git = "https://github.com/bonsairobo/building-blocks"
-branch = "main"
-features = ["mesh", "mint", "ncollide", "partition", "search"]
+rev = "bb9634c"
+# branch = "main"
+features = ["mesh", "mint", "ncollide", "search"]
 
 [features]
 profiler = ["thread_profiler", "thread_profiler/thread_profiler"]

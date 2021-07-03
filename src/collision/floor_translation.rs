@@ -58,14 +58,14 @@ fn integer_points_on_line_segment_3d(
 }
 
 /// True if the voxel at `p` is not a floor voxel AND the voxel directly under `p` is a floor voxel.
-fn voxel_is_on_top_of_floor<V, T>(p: &Point3i, voxels: &V) -> bool
+fn voxel_is_on_top_of_floor<V, T>(p: Point3i, voxels: &V) -> bool
 where
-    V: for<'r> Get<&'r Point3i, Data = T>,
+    V: Get<Point3i, Item = T>,
     T: IsFloor,
 {
     if !voxels.get(p).is_floor() {
-        let under_p = *p - PointN([0, 1, 0]);
-        return voxels.get(&under_p).is_floor();
+        let under_p = p - PointN([0, 1, 0]);
+        return voxels.get(under_p).is_floor();
     }
 
     false
@@ -76,7 +76,7 @@ const MAX_PROBE_ITERS: i32 = 10;
 // POTENTIAL BUG: can skip over non-floor voxels in a column
 fn vertical_probe<V, T>(vertical_iters: i32, start: &Point3i, voxels: &V) -> Option<i32>
 where
-    V: for<'r> Get<&'r Point3i, Data = T>,
+    V: Get<Point3i, Item = T>,
     T: IsFloor,
 {
     let dir = vertical_iters.signum();
@@ -84,7 +84,7 @@ where
     let mut p = *start;
     let mut dh = 0;
     for _ in 0..probe_iters {
-        if voxel_is_on_top_of_floor(&p, voxels) {
+        if voxel_is_on_top_of_floor(p, voxels) {
             return Some(dh);
         }
         p = p + PointN([0, dir, 0]);
@@ -109,7 +109,7 @@ pub fn translate_over_floor<V, T>(
     blocking_collisions: bool,
 ) -> Point3<f32>
 where
-    V: for<'r> Get<&'r Point3i, Data = T>,
+    V: Get<Point3i, Item = T>,
     T: IsFloor,
 {
     let up = Vector3::from(UP);
@@ -118,11 +118,11 @@ where
     let start_voxel = voxel_containing_point(start);
 
     // Sometimes geometry gets created on top of the camera feet, so just probe out of it.
-    if voxels.get(&start_voxel).is_floor() {
+    if voxels.get(start_voxel).is_floor() {
         if let Some(dh) = vertical_probe(100, &start_voxel, voxels) {
             start += dh as f32 * up;
         }
-    } else if !voxel_is_on_top_of_floor(&start_voxel, voxels) {
+    } else if !voxel_is_on_top_of_floor(start_voxel, voxels) {
         if let Some(dh) = vertical_probe(-100, &start_voxel, voxels) {
             start += dh as f32 * up;
         }
@@ -151,7 +151,7 @@ where
 
         let voxel_p = midpoint_voxel + PointN([0, height_delta, 0]);
 
-        let voxel_is_floor = voxels.get(&voxel_p).is_floor();
+        let voxel_is_floor = voxels.get(voxel_p).is_floor();
         let probe_vector = if voxel_is_floor {
             MAX_PROBE_ITERS
         } else {

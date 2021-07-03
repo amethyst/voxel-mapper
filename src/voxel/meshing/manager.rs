@@ -29,10 +29,10 @@ impl<'a> VoxelMeshManager<'a> {
             ..
         } = assets;
 
-        for chunk_key in voxel_map.voxels.chunk_keys() {
-            if let Some(chunk_mesh) = meshes.chunk_meshes.get(chunk_key) {
+        for chunk_key in voxel_map.voxels.storage().chunk_keys() {
+            if let Some(chunk_mesh) = meshes.chunk_meshes.get(&chunk_key.minimum) {
                 self.update_chunk_mesh_entities(
-                    chunk_key,
+                    chunk_key.minimum,
                     Some(chunk_mesh.clone()),
                     array_materials,
                 );
@@ -42,7 +42,7 @@ impl<'a> VoxelMeshManager<'a> {
 
     pub fn update_chunk_mesh_entities(
         &mut self,
-        chunk_key: &Point3i,
+        chunk_key: Point3i,
         mesh: Option<ChunkMesh>,
         array_materials: &HashMap<ArrayMaterialId, Handle<Prefab<MaterialPrefab>>>,
     ) {
@@ -63,7 +63,7 @@ impl<'a> VoxelMeshManager<'a> {
         let mesh_entities = self
             .mesh_entities
             .chunk_entities
-            .entry(*chunk_key)
+            .entry(chunk_key)
             .or_insert_with(Vec::new);
         for e in mesh_entities.drain(..) {
             self.entities.delete(e).unwrap();

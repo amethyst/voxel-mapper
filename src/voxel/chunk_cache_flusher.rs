@@ -1,29 +1,28 @@
-use crate::voxel::{Voxel, VoxelMap};
+use crate::voxel::{LocalVoxelCache, VoxelMap};
 
 use amethyst::core::ecs::prelude::*;
-use building_blocks::prelude::*;
 use crossbeam::{Receiver, Sender};
 
 pub struct ChunkCacheFlusher {
-    tx: Sender<LocalChunkCache3<Voxel>>,
+    tx: Sender<LocalVoxelCache>,
 }
 
 impl ChunkCacheFlusher {
-    pub fn new(tx: Sender<LocalChunkCache3<Voxel>>) -> Self {
+    pub fn new(tx: Sender<LocalVoxelCache>) -> Self {
         Self { tx }
     }
 
-    pub fn flush(&self, cache: LocalChunkCache3<Voxel>) {
+    pub fn flush(&self, cache: LocalVoxelCache) {
         self.tx.send(cache).unwrap();
     }
 }
 
 pub struct ChunkCacheReceiver {
-    rx: crossbeam::Receiver<LocalChunkCache3<Voxel>>,
+    rx: crossbeam::Receiver<LocalVoxelCache>,
 }
 
 impl ChunkCacheReceiver {
-    pub fn new(rx: Receiver<LocalChunkCache3<Voxel>>) -> Self {
+    pub fn new(rx: Receiver<LocalVoxelCache>) -> Self {
         Self { rx }
     }
 }
@@ -36,7 +35,7 @@ impl ChunkCacheReceiver {
 //
 // Right now this is just unlikely because of the size of the cache and rate of compression
 
-/// A system that flushes system-local `LocalChunkCache3<Voxel>`s. Just send your cache using the
+/// A system that flushes system-local `LocalVoxelCache`s. Just send your cache using the
 /// `ChunkCacheFlusher`.
 #[derive(Default)]
 pub struct ChunkCacheFlusherSystem;
@@ -49,7 +48,7 @@ impl<'a> System<'a> for ChunkCacheFlusherSystem {
 
     fn run(&mut self, (cache_rx, mut voxel_map): Self::SystemData) {
         for cache in cache_rx.rx.try_iter() {
-            voxel_map.voxels.chunks.flush_local_cache(cache);
+            voxel_map.voxels.storage_mut().flush_local_cache(cache);
         }
     }
 }
